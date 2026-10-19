@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Game } from './game/Game.js';
-import { Hud, Messages, Debug, MainMenu, PauseMenu, DeathScreen, InventoryScreen, TouchControls, QuizPanel, Score } from './ui.jsx';
+import { Hud, Messages, Debug, MainMenu, PauseMenu, DeathScreen, InventoryScreen, TouchControls } from './ui.jsx';
 
 export default function Minicraft() {
   const mountRef = useRef(null);
@@ -22,8 +22,6 @@ export default function Minicraft() {
           {ui.screen === 'play' && <div className="cross" />}
           {ui.touch && ui.screen === 'play' && <TouchControls game={game} />}
           {ui.screen !== 'menu' && <Hud ui={ui} game={game} />}
-          {ui.math !== 'off' && ui.screen !== 'menu' && <Score ui={ui} />}
-          {ui.quiz && ui.screen === 'play' && <QuizPanel ui={ui} game={game} />}
           {ui.debug && <Debug d={ui.debug} />}
           <Messages messages={ui.messages} />
           {ui.now - ui.hurtAt < 350 && <div className="hurt" />}

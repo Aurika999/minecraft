@@ -23,7 +23,6 @@ Apoi deschide http://localhost:5173/.
 - Crafting din inventar, pe bancul de lucru și în cuptor
 - Animale (vaci, porci, oi, găini) și monștri noaptea (zombi, schelete, creeperi)
 - Ciclu zi/noapte, torțe care luminează, pat pentru dormit și punct de renaștere
-- **Modul Matematică:** fiecare bloc are un calcul scris pe el și îl spargi doar dacă răspunzi corect (niveluri: Fără, Ușor, Mediu, Greu)
 - Se poate juca și pe telefon sau tabletă, cu controale tactile
 
 ## Controale

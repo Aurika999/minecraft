@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { item, CREATIVE_ITEMS } from './game/registry.js';
 import { iconURL, hudIconURL } from './game/textures.js';
-import { MATH_LEVELS } from './game/math.js';
 
 const range = (a, b) => Array.from({ length: b - a }, (_, i) => a + i);
 
@@ -144,50 +143,6 @@ export function TouchControls({ game }) {
   );
 }
 
-// ---------- modul Matematică ----------
-
-export function MathPicker({ ui, game }) {
-  return (
-    <div className="math-picker">
-      <span>Calcule pe blocuri:</span>
-      <div className="row">
-        {Object.entries(MATH_LEVELS).map(([k, label]) => (
-          <button key={k} className={'small' + (ui.math === k ? ' on' : '')} onClick={() => game.setMath(k)}>{label}</button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-export function Score({ ui }) {
-  return <div className="score">Calcule corecte: <b>{ui.score}</b></div>;
-}
-
-const PAD = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'back', '0', 'ok'];
-
-export function QuizPanel({ ui, game }) {
-  const q = ui.quiz;
-  return (
-    <div className={'quiz' + (ui.touch ? ' touch' : '')}>
-      <div className="quiz-q">Cât face <b>{q.text}</b>?</div>
-      <div className="quiz-input">{q.input || ' '}</div>
-      {q.wrong > 0 && <div className="quiz-wrong">Greșit de {q.wrong} {q.wrong === 1 ? 'dată' : 'ori'}, mai încearcă.</div>}
-      {ui.touch ? (
-        <div className="pad">
-          {PAD.map(k => (
-            <button key={k} className={'tbtn pad-' + k} onPointerDown={e => { e.preventDefault(); game.quizKey(k); }}>
-              {k === 'back' ? '⌫' : k === 'ok' ? 'OK' : k}
-            </button>
-          ))}
-          <button className="tbtn pad-cancel" onPointerDown={() => game.quizKey('cancel')}>Renunț</button>
-        </div>
-      ) : (
-        <div className="quiz-hint">Scrie răspunsul și apasă <kbd>Enter</kbd> · <kbd>Backspace</kbd> șterge · click dreapta = renunți</div>
-      )}
-    </div>
-  );
-}
-
 export function Messages({ messages }) {
   return <div className="messages">{messages.map(m => <div key={m.id}>{m.text}</div>)}</div>;
 }
@@ -251,8 +206,6 @@ export function MainMenu({ ui, game }) {
           <button onClick={() => game.start('creative')}>Creative</button>
         </div>
         <p className="sub">Survival: viață, foame, unelte și monștri noaptea. Creative: blocuri nelimitate și zbor.</p>
-        <MathPicker ui={ui} game={game} />
-        <p className="sub">Cu calculele pornite, fiecare bloc are un calcul pe el. Îl spargi doar dacă răspunzi corect.</p>
         {!ui.touch && <button className="ghost" onClick={() => game.toggleFullscreen()}>Ecran complet</button>}
         <Controls touch={ui.touch} />
         <p className="note">
@@ -275,7 +228,6 @@ export function PauseMenu({ ui, game }) {
           <button className={ui.mode === 'survival' ? 'on' : ''} onClick={() => game.setMode('survival')}>Survival</button>
           <button className={ui.mode === 'creative' ? 'on' : ''} onClick={() => game.setMode('creative')}>Creative</button>
         </div>
-        <MathPicker ui={ui} game={game} />
         <button className="ghost" onClick={() => game.toggleFullscreen()}>{ui.fullscreen ? 'Ieși din ecran complet' : 'Ecran complet'}</button>
         <Controls touch={ui.touch} />
       </div>

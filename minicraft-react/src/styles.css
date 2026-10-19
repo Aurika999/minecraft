@@ -97,24 +97,3 @@ button.close { min-width: 0; padding: 4px 10px; }
 .tbtn.sneak { right: calc(112px + env(safe-area-inset-right, 0px)); bottom: calc(var(--slot) * 1.6 + 40px + env(safe-area-inset-bottom, 0px)); width: 58px; height: 58px; font-size: 18px; }
 .tbar { position: absolute; top: calc(10px + env(safe-area-inset-top, 0px)); right: calc(10px + env(safe-area-inset-right, 0px)); display: flex; gap: 8px; }
 .tbar .tbtn { position: static; height: 40px; padding: 0 14px; border-radius: 6px; font-size: 14px; }
-
-/* ---------- modul Matematică ---------- */
-.math-picker { margin: 14px 0 4px; color: var(--muted); }
-button.small { min-width: 0; padding: 7px 16px; font-size: 15px; }
-.score { position: fixed; top: calc(10px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); padding: 4px 12px; background: rgba(0, 0, 0, .5); border-radius: 4px; font-size: 14px; pointer-events: none; }
-.score b { color: #ffe36e; }
-.quiz { position: fixed; left: 50%; top: calc(50% + 34px); transform: translateX(-50%); width: min(360px, calc(100vw - 32px)); box-sizing: border-box; padding: 12px 16px; text-align: center; background: var(--panel); border: 2px solid #000; border-radius: 8px; }
-.quiz-q { font-size: 18px; }
-.quiz-q b { font-size: 24px; color: #ffe36e; white-space: nowrap; }
-.quiz-input { margin: 8px auto 4px; width: 60%; padding: 6px; font: 700 28px ui-monospace, Consolas, monospace; background: #111; border: 2px solid #555; border-radius: 4px; }
-.quiz-wrong { color: #ff8a8a; font-size: 14px; }
-.quiz-hint { margin-top: 8px; color: var(--muted); font-size: 13px; line-height: 1.8; }
-.quiz.touch { top: auto; bottom: calc(10px + env(safe-area-inset-bottom, 0px)); z-index: 5; }
-.pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 8px; }
-.pad .tbtn { position: static; height: 46px; border-radius: 6px; font-size: 20px; }
-.pad .pad-ok { background: rgba(80, 170, 60, .6); }
-.pad .pad-cancel { grid-column: 1 / -1; height: 36px; font-size: 14px; }
-@media (max-height: 520px) {
-  .quiz.touch { left: auto; right: calc(10px + env(safe-area-inset-right, 0px)); transform: none; width: 300px; padding: 8px 10px; }
-  .pad .tbtn { height: 38px; }
-}
