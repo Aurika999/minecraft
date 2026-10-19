@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Game } from './game/Game.js';
-import { Hud, Messages, Debug, MainMenu, PauseMenu, DeathScreen, InventoryScreen } from './ui.jsx';
+import { Hud, Messages, Debug, MainMenu, PauseMenu, DeathScreen, InventoryScreen, TouchControls, QuizPanel, Score } from './ui.jsx';
 
 export default function Minicraft() {
   const mountRef = useRef(null);
@@ -18,18 +18,21 @@ export default function Minicraft() {
     <>
       <div ref={mountRef} />
       {ui && game && (
-        <>
+        <div className={ui.touch ? 'is-touch' : undefined}>
           {ui.screen === 'play' && <div className="cross" />}
-          {ui.screen !== 'menu' && <Hud ui={ui} />}
+          {ui.touch && ui.screen === 'play' && <TouchControls game={game} />}
+          {ui.screen !== 'menu' && <Hud ui={ui} game={game} />}
+          {ui.math !== 'off' && ui.screen !== 'menu' && <Score ui={ui} />}
+          {ui.quiz && ui.screen === 'play' && <QuizPanel ui={ui} game={game} />}
           {ui.debug && <Debug d={ui.debug} />}
           <Messages messages={ui.messages} />
           {ui.now - ui.hurtAt < 350 && <div className="hurt" />}
           {ui.sleep > 0 && <div className="sleep" style={{ opacity: ui.sleep }} />}
-          {ui.screen === 'menu' && <MainMenu game={game} />}
+          {ui.screen === 'menu' && <MainMenu ui={ui} game={game} />}
           {ui.screen === 'pause' && <PauseMenu ui={ui} game={game} />}
           {ui.screen === 'dead' && <DeathScreen ui={ui} game={game} />}
           {ui.screen === 'inventory' && <InventoryScreen ui={ui} game={game} />}
-        </>
+        </div>
       )}
     </>
   );

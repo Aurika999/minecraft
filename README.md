@@ -23,6 +23,8 @@ Apoi deschide http://localhost:5173/.
 - Crafting din inventar, pe bancul de lucru și în cuptor
 - Animale (vaci, porci, oi, găini) și monștri noaptea (zombi, schelete, creeperi)
 - Ciclu zi/noapte, torțe care luminează, pat pentru dormit și punct de renaștere
+- **Modul Matematică:** fiecare bloc are un calcul scris pe el și îl spargi doar dacă răspunzi corect (niveluri: Fără, Ușor, Mediu, Greu)
+- Se poate juca și pe telefon sau tabletă, cu controale tactile
 
 ## Controale
 
@@ -38,3 +40,15 @@ Apoi deschide http://localhost:5173/.
 | Q | aruncă obiectul |
 | 1–9 / rotița | alege din bară |
 | F3 | coordonate și informații |
+
+### Pe telefon
+
+| Gest | Acțiune |
+| --- | --- |
+| Joystick stânga | mișcare (împins până la capăt = alergare) |
+| Tragi cu degetul | te uiți în jur |
+| Atingere scurtă | pune bloc / folosește / lovește |
+| Ții apăsat | sparge blocul |
+| ▲ / ▼ | săritură / ghemuire |
+
+Ca să încerci pe telefon în aceeași rețea Wi-Fi, rulează `npm run dev` și deschide adresa „Network” afișată în terminal.

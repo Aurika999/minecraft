@@ -6,6 +6,7 @@ import { atlasTexture, iconCanvas } from './textures.js';
 import { moveEntity, raycast, rayBox, hasSupport, touches, aabbOverlap, overlapsSolid } from './physics.js';
 import { Inventory } from './inventory.js';
 import { createMob, updateMob, HOSTILE, PASSIVE } from './mobs.js';
+import { makeProblem } from './math.js';
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -60,6 +61,11 @@ export class Game {
     this.sleepT = 0; this.spawnT = 0; this.heldNameAt = 0; this.bed = null;
     this.fps = 0; this.frames = 0; this.fpsT = 0;
     this._dir = new THREE.Vector3(); this._sun = new THREE.Vector3();
+    // pe telefon/tabletă nu există pointer lock: controalele vin din butoanele de pe ecran
+    this.touch = matchMedia('(hover: none) and (pointer: coarse)').matches;
+    this.move = { x: 0, y: 0 }; this.touchSprint = false;
+    // modul Matematică: ca să spargi un bloc trebuie să rezolvi calculul de pe el
+    this.mathLevel = 'easy'; this.quiz = null; this.score = 0; this.quizSalt = new Map();
 
     this.world = new World((Math.random() * 1e9) | 0);
     this.world.generate();
@@ -119,6 +125,90 @@ export class Game {
     this.arrowMat = new THREE.MeshLambertMaterial({ color: 0x8a6a40 });
     this.boomGeo = new THREE.SphereGeometry(1, 16, 12);
     this.spriteMats = {};
+
+    // eticheta cu calculul, afișată pe fața blocului țintit
+    this.labelCanvas = document.createElement('canvas');
+    this.labelCanvas.width = 512; this.labelCanvas.height = 160;
+    this.labelTex = new THREE.CanvasTexture(this.labelCanvas);
+    this.labelTex.colorSpace = THREE.SRGBColorSpace;
+    this.label = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.labelTex, depthTest: false, fog: false }));
+    this.label.scale.set(1.2, .375, 1);
+    this.label.renderOrder = 999;
+    this.label.visible = false;
+    this.labelText = '';
+    scene.add(this.label);
+  }
+
+  drawLabel(text, state) {
+    const key = text + '|' + state;
+    if (key === this.labelText) return;
+    this.labelText = key;
+    const c = this.labelCanvas, x = c.getContext('2d');
+    x.clearRect(0, 0, c.width, c.height);
+    x.fillStyle = state === 'wrong' ? 'rgba(255,215,215,.95)' : state === 'active' ? 'rgba(255,248,200,.95)' : 'rgba(255,255,255,.9)';
+    x.strokeStyle = '#222'; x.lineWidth = 8;
+    x.beginPath(); x.roundRect(6, 6, c.width - 12, c.height - 12, 28); x.fill(); x.stroke();
+    let size = 76;
+    do { x.font = `700 ${size}px system-ui, sans-serif`; size -= 4; } while (x.measureText(text).width > c.width - 50 && size > 30);
+    x.fillStyle = '#1d1d1d'; x.textAlign = 'center'; x.textBaseline = 'middle';
+    x.fillText(text, c.width / 2, c.height / 2 + 4);
+    this.labelTex.needsUpdate = true;
+  }
+
+  problemFor(x, y, z) {
+    return makeProblem(this.mathLevel, x, y, z, this.quizSalt.get(`${x},${y},${z}`) || 0);
+  }
+
+  updateLabel() {
+    const q = this.quiz, t = q || this.target;
+    const show = this.mathLevel !== 'off' && this.screen === 'play' && t && BLOCK[t.id].hardness !== Infinity;
+    this.label.visible = !!show;
+    if (!show) return;
+    const p = q || this.problemFor(t.x, t.y, t.z);
+    this.drawLabel(`${p.text} = ${q && q.input ? q.input : '?'}`, q ? (q.flash > 0 ? 'wrong' : 'active') : 'idle');
+    const n = t.n.some(v => v) ? t.n : [0, 1, 0];
+    this.label.position.set(t.x + .5 + n[0] * .56, t.y + .5 + n[1] * .56, t.z + .5 + n[2] * .56);
+  }
+
+  setMath(level) { this.mathLevel = level; this.quiz = null; this.emit(); }
+
+  startQuiz(t) {
+    const p = this.problemFor(t.x, t.y, t.z);
+    this.quiz = { x: t.x, y: t.y, z: t.z, n: t.n, id: t.id, text: p.text, answer: p.answer, input: '', wrong: 0, flash: 0 };
+    this.keys = {}; this.mouseL = this.mouseR = false; this.breaking = null; this.crack.visible = false;
+    this.emit();
+  }
+
+  // k: o cifră, 'back', 'ok' sau 'cancel'
+  quizKey(k) {
+    const q = this.quiz;
+    if (!q) return;
+    if (k === 'cancel') this.quiz = null;
+    else if (k === 'back') q.input = q.input.slice(0, -1);
+    else if (k === 'ok') this.checkQuiz();
+    else if (/^\d$/.test(k) && q.input.length < 6) q.input = (q.input === '0' ? '' : q.input) + k;
+    this.emit();
+  }
+
+  checkQuiz() {
+    const q = this.quiz, key = `${q.x},${q.y},${q.z}`;
+    if (q.input === '') return;
+    if (+q.input === q.answer) {
+      this.quiz = null;
+      this.quizSalt.delete(key);
+      this.score++;
+      if (this.world.get(q.x, q.y, q.z) === q.id) this.breakBlock(q.x, q.y, q.z);
+      this.msg(`Corect! ${q.text} = ${q.answer}`);
+      return;
+    }
+    q.wrong++; q.input = ''; q.flash = .6;
+    if (q.wrong >= 3) {
+      const salt = (this.quizSalt.get(key) || 0) + 1;
+      this.quizSalt.set(key, salt);
+      this.msg(`Răspunsul era ${q.answer}. Uite alt calcul pentru blocul ăsta.`);
+      const p = this.problemFor(q.x, q.y, q.z);
+      Object.assign(q, { text: p.text, answer: p.answer, wrong: 0 });
+    } else this.msg(`Greșit, mai încearcă! (încercarea ${q.wrong} din 3)`);
   }
 
   findSpawn() {
@@ -166,14 +256,16 @@ export class Game {
     this.onLock = () => {
       this.locked = document.pointerLockElement === this.canvas;
       if (this.locked && (this.screen === 'menu' || this.screen === 'pause')) this.screen = 'play';
-      else if (!this.locked && this.screen === 'play') { this.screen = 'pause'; this.keys = {}; this.mouseL = this.mouseR = false; }
+      else if (!this.locked && this.screen === 'play') { this.screen = 'pause'; this.releaseInputs(); }
       this.emit();
     };
     this.onLockError = () => { if (this.screen === 'play' && !this.locked) { this.screen = 'pause'; this.emit(); } };
     this.onFs = () => this.emit();
+    this.onVisibility = () => { if (document.hidden) this.pause(); };
     document.addEventListener('pointerlockchange', this.onLock);
     document.addEventListener('pointerlockerror', this.onLockError);
     document.addEventListener('fullscreenchange', this.onFs);
+    document.addEventListener('visibilitychange', this.onVisibility);
   }
 
   dispose() {
@@ -182,6 +274,7 @@ export class Game {
     document.removeEventListener('pointerlockchange', this.onLock);
     document.removeEventListener('pointerlockerror', this.onLockError);
     document.removeEventListener('fullscreenchange', this.onFs);
+    document.removeEventListener('visibilitychange', this.onVisibility);
     if (this.locked) document.exitPointerLock();
     this.scene.traverse(o => {
       o.geometry?.dispose();
@@ -195,6 +288,11 @@ export class Game {
   // ---------- acțiuni din interfață ----------
 
   lock() {
+    if (this.touch) {
+      if (this.screen === 'menu' || this.screen === 'pause') this.screen = 'play';
+      this.emit();
+      return;
+    }
     try {
       const r = this.canvas.requestPointerLock();
       if (r && r.catch) r.catch(() => {});
@@ -209,10 +307,58 @@ export class Game {
         ? 'Începe prin a tăia un copac: ține apăsat click stânga pe trunchi.'
         : 'Mod Creative: apasă de două ori Spațiu ca să zbori. Cu E alegi orice bloc.');
     }
+    if (this.touch && !document.fullscreenElement) {
+      document.documentElement.requestFullscreen?.()
+        .then(() => screen.orientation?.lock?.('landscape'))
+        .catch(() => {});
+    }
     this.lock();
   }
 
   resume() { this.lock(); }
+
+  pause() {
+    if (this.screen !== 'play') return;
+    if (this.locked) { document.exitPointerLock(); return; }
+    this.screen = 'pause';
+    this.releaseInputs();
+    this.emit();
+  }
+
+  releaseInputs() {
+    this.keys = {}; this.mouseL = this.mouseR = false; this.quiz = null;
+    this.move.x = this.move.y = 0; this.touchSprint = false;
+  }
+
+  // ---------- controale tactile ----------
+
+  look(dx, dy) {
+    if (this.screen !== 'play') return;
+    const p = this.p;
+    p.yaw -= dx * .006;
+    p.pitch = clamp(p.pitch - dy * .006, -1.55, 1.55);
+  }
+
+  // x, y în [-1, 1] de la joystick; y negativ = înainte
+  setMove(x, y) {
+    const m = Math.hypot(x, y);
+    if (m < .15) x = y = 0;
+    this.move.x = x; this.move.y = y;
+    this.touchSprint = m > .95 && y < -.7;
+  }
+
+  // atingere scurtă: lovește mobul din centru, altfel pune bloc / folosește
+  touchTap() {
+    if (this.screen !== 'play' || this.sleepT > 0 || this.quiz) return;
+    if (!this.attack()) this.useItem(false);
+  }
+
+  // ținut apăsat: sparge blocul din centru
+  touchBreak(on) { this.mouseL = on && this.screen === 'play'; }
+
+  virtualKey(code, down) {
+    this.onKey({ code, repeat: false, ctrlKey: false, preventDefault() {} }, down);
+  }
 
   setMode(mode) {
     this.mode = mode;
@@ -239,7 +385,7 @@ export class Game {
   openInventory(station) {
     this.station = station;
     this.screen = 'inventory';
-    this.keys = {}; this.mouseL = this.mouseR = false; this.breaking = null;
+    this.releaseInputs(); this.breaking = null;
     document.exitPointerLock();
     this.emit();
   }
@@ -334,6 +480,16 @@ export class Game {
       return;
     }
     if (this.screen !== 'play') return;
+    if (this.quiz) {
+      // cât timp e deschis un calcul, tastele scriu răspunsul
+      const digit = /^(Digit|Numpad)(\d)$/.exec(e.code);
+      if (digit) this.quizKey(digit[2]);
+      else if (e.code === 'Backspace') this.quizKey('back');
+      else if (e.code === 'Enter' || e.code === 'NumpadEnter') this.quizKey('ok');
+      else if (e.code === 'Escape') this.quizKey('cancel');
+      if (e.code !== 'Escape') e.preventDefault();
+      return;
+    }
     if (e.ctrlKey || e.code === 'Space' || e.code === 'Tab') e.preventDefault();
     this.keys[e.code] = true;
     if (e.repeat) return;
@@ -359,6 +515,7 @@ export class Game {
 
   onMouseDown(e) {
     if (!this.locked || this.screen !== 'play' || this.sleepT > 0) return;
+    if (this.quiz) { if (e.button === 2) this.quizKey('cancel'); return; }
     if (e.button === 0) { this.mouseL = true; this.attack(); }
     else if (e.button === 2) { this.mouseR = true; this.useItem(false); this.useCd = .3; }
     else if (e.button === 1) { e.preventDefault(); this.pickBlock(); }
@@ -396,7 +553,8 @@ export class Game {
         this.time = Math.floor(this.time) + 1;
         this.msg('Bună dimineața!');
       }
-      if (!this.p.dead) this.updatePlayer(dt, s === 'play' && this.sleepT <= 0);
+      if (!this.p.dead) this.updatePlayer(dt, s === 'play' && this.sleepT <= 0 && !this.quiz);
+      if (this.quiz && this.quiz.flash > 0) this.quiz.flash -= dt;
       this.updateMobs(dt);
       this.updateItems(dt);
       this.updateArrows(dt);
@@ -407,6 +565,7 @@ export class Game {
     this.updateSky(running ? dt : 0);
     this.updateTarget();
     this.updateBreaking(dt);
+    this.updateLabel();
     if (this.mouseR && s === 'play' && (this.useCd -= dt) <= 0) { this.useCd = .25; this.useItem(true); }
   }
 
@@ -414,15 +573,17 @@ export class Game {
     const p = this.p, k = input ? this.keys : {}, w = this.world, creative = this.mode === 'creative';
     const inLava = touches(w, p, B.LAVA), shift = !!(k.ShiftLeft || k.ShiftRight);
     let f = (k.KeyW ? 1 : 0) - (k.KeyS ? 1 : 0), st = (k.KeyD ? 1 : 0) - (k.KeyA ? 1 : 0);
+    if (input) { f -= this.move.y; st += this.move.x; }
 
     p.sneaking = shift && !p.flying;
     const canSprint = creative || p.food > 6;
-    if ((k.ControlLeft || k.ControlRight || this.wSprint) && f > 0 && !p.sneaking && canSprint) p.sprinting = true;
+    const wantSprint = k.ControlLeft || k.ControlRight || this.wSprint || (input && this.touchSprint);
+    if (wantSprint && f > 0 && !p.sneaking && canSprint) p.sprinting = true;
     if (f <= 0 || p.sneaking || !canSprint) p.sprinting = false;
 
     let speed = p.flying ? (p.sprinting ? 21 : 10.9) : p.sneaking ? 1.3 : p.sprinting ? 5.6 : 4.3;
     if (inLava) speed *= .35;
-    const len = Math.hypot(f, st) || 1;
+    const len = Math.max(1, Math.hypot(f, st));
     f /= len; st /= len;
     const sn = Math.sin(p.yaw), cs = Math.cos(p.yaw);
     const wx = (-sn * f + cs * st) * speed, wz = (-cs * f - sn * st) * speed;
@@ -547,8 +708,9 @@ export class Game {
   updateBreaking(dt) {
     this.breakCd -= dt;
     const t = this.target;
-    if (!this.mouseL || !t || this.screen !== 'play') { this.breaking = null; this.crack.visible = false; return; }
+    if (this.quiz || !this.mouseL || !t || this.screen !== 'play') { this.breaking = null; this.crack.visible = false; return; }
     if (this.breakCd > 0) return;
+    if (this.mathLevel !== 'off' && BLOCK[t.id].hardness !== Infinity) { this.startQuiz(t); return; }
     const key = `${t.x},${t.y},${t.z}`;
     if (!this.breaking || this.breaking.key !== key) {
       this.breaking = { key, prog: 0 };
@@ -729,7 +891,7 @@ export class Game {
     const drop = s => this.spawnItem(s.id, s.count, p.x, p.y + 1, p.z, { x: (Math.random() - .5) * 6, y: 4, z: (Math.random() - .5) * 6 }, 2, s.dur);
     this.inv.slots.forEach((s, i) => { if (s) { drop(s); this.inv.slots[i] = null; } });
     if (this.cursor) { drop(this.cursor); this.cursor = null; }
-    this.keys = {}; this.mouseL = this.mouseR = false;
+    this.releaseInputs();
     document.exitPointerLock();
   }
 
@@ -742,12 +904,13 @@ export class Game {
       const r = rayBox(o, d, m.x - m.w, m.y, m.z - m.w, m.x + m.w, m.y + m.h, m.z + m.w);
       if (r && r.t < bt) { bt = r.t; best = m; }
     }
-    if (!best) return;
+    if (!best) return false;
     const tool = this.heldTool();
     this.damageMob(best, tool ? tool.dmg : 1, this.p);
     if (tool) this.damageTool(tool.type === 'sword' ? 1 : 2);
     this.p.exh += .1;
     this.mouseL = false;
+    return true;
   }
 
   damageMob(m, dmg, src) {
@@ -911,7 +1074,9 @@ export class Game {
     this.lastEmit = now;
     this.messages = this.messages.filter(m => now - m.t < 6000);
     this.onUpdate({
-      now, screen: this.screen, mode: this.mode, sel: this.sel, station: this.station, fuel: this.fuel,
+      now, touch: this.touch, screen: this.screen, mode: this.mode,
+      math: this.mathLevel, score: this.score,
+      quiz: this.quiz && { text: this.quiz.text, input: this.quiz.input, wrong: this.quiz.wrong }, sel: this.sel, station: this.station, fuel: this.fuel,
       health: p.health, food: p.food, hurtAt: p.hurtAt, heldNameAt: this.heldNameAt,
       slots: this.inv.slots.map(s => s && { ...s }),
       cursor: this.cursor && { ...this.cursor },
