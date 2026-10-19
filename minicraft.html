@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Minicraft</title>
+<style>
+:root{--bg:#87ceeb;--panel:rgba(0,0,0,.55);--fg:#fff}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);font-family:system-ui,sans-serif}
+canvas{display:block}
+#cross{position:fixed;left:50%;top:50%;width:18px;height:18px;margin:-9px 0 0 -9px;pointer-events:none}
+#cross:before,#cross:after{content:"";position:absolute;background:#fff;mix-blend-mode:difference}
+#cross:before{left:8px;top:0;width:2px;height:18px}
+#cross:after{top:8px;left:0;height:2px;width:18px}
+#bar{position:fixed;bottom:calc(14px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);display:flex;gap:6px}
+.slot{width:44px;height:44px;border:3px solid #333;border-radius:4px;color:var(--fg);font:700 12px system-ui;display:flex;align-items:flex-end;justify-content:flex-end;padding:2px 4px;box-sizing:border-box}
+.slot.on{border-color:#fff;transform:scale(1.15)}
+#hint{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;color:var(--fg);background:var(--panel);cursor:pointer;line-height:1.7;padding:20px}
+</style>
+</head>
+<body>
+<div id="cross"></div>
+<div id="bar"></div>
+<div id="hint"><div><h2>Minicraft</h2>Click pentru a juca<br>WASD = mișcare · Spațiu = săritură · Mouse = privire<br>Click stânga = sparge · Click dreapta = pune bloc · 1–5 = alege bloc</div></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+const N=32, COLORS=[0x5a9e3a,0x8b5a2b,0x888888,0xa0763c,0xe0d08a];
+const blocks=new Map(), key=(x,y,z)=>x+','+y+','+z;
+for(let x=0;x<N;x++)for(let z=0;z<N;z++){
+  const h=Math.max(1,Math.floor(5+3*Math.sin(x*.25)+3*Math.cos(z*.2)+1.5*Math.sin((x+z)*.5)));
+  for(let y=0;y<=h;y++)blocks.set(key(x,y,z),y===h?0:y>=h-2?1:2);
+}
+const scene=new THREE.Scene();
+scene.background=new THREE.Color(0x87ceeb);
+scene.fog=new THREE.Fog(0x87ceeb,25,60);
+scene.add(new THREE.AmbientLight(0xffffff,.65));
+const sun=new THREE.DirectionalLight(0xffffff,.8);sun.position.set(30,50,20);scene.add(sun);
+const cam=new THREE.PerspectiveCamera(70,innerWidth/innerHeight,.1,100);
+cam.rotation.order='YXZ';
+const renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setSize(innerWidth,innerHeight);
+document.body.prepend(renderer.domElement);
+addEventListener('resize',()=>{renderer.setSize(innerWidth,innerHeight);cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix()});
+
+const mesh=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),new THREE.MeshLambertMaterial(),N*N*20);
+scene.add(mesh);
+let keys=[];
+const D=[[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]], m=new THREE.Matrix4(), c=new THREE.Color();
+function rebuild(){
+  keys=[];let i=0;
+  for(const [k,t] of blocks){
+    const [x,y,z]=k.split(',').map(Number);
+    if(!D.some(d=>!blocks.has(key(x+d[0],y+d[1],z+d[2]))))continue;
+    m.setPosition(x,y,z);mesh.setMatrixAt(i,m);
+    mesh.setColorAt(i,c.setHex(COLORS[t]).offsetHSL(0,0,((x*7+y*13+z*3)%5-2)*.012));
+    keys.push(k);i++;
+  }
+  mesh.count=i;mesh.instanceMatrix.needsUpdate=true;mesh.instanceColor.needsUpdate=true;
+}
+rebuild();
+
+// jucător
+const p=new THREE.Vector3(16,0,16);
+for(let y=30;y>=0;y--)if(blocks.has(key(16,y,16))){p.y=y+.5;break;}
+let vy=0,yaw=0,pitch=0,ground=false,sel=0;
+const hit=(x,y,z)=>blocks.has(key(Math.round(x),Math.round(y),Math.round(z)));
+function collides(q){
+  for(const dx of[-.3,.3])for(const dz of[-.3,.3])for(const h of[.05,.9,1.7])
+    if(hit(q.x+dx,q.y+h,q.z+dz))return true;
+  return false;
+}
+const down={};
+addEventListener('keydown',e=>{down[e.code]=true;const n=+e.key;if(n>=1&&n<=5){sel=n-1;ui()}});
+addEventListener('keyup',e=>down[e.code]=false);
+addEventListener('mousemove',e=>{
+  if(document.pointerLockElement!==renderer.domElement)return;
+  yaw-=e.movementX*.0025;pitch=Math.max(-1.5,Math.min(1.5,pitch-e.movementY*.0025));
+});
+const hint=document.getElementById('hint');
+hint.onclick=()=>renderer.domElement.requestPointerLock();
+document.addEventListener('pointerlockchange',()=>hint.style.display=document.pointerLockElement?'none':'flex');
+addEventListener('contextmenu',e=>e.preventDefault());
+
+const ray=new THREE.Raycaster();ray.far=6;
+addEventListener('mousedown',e=>{
+  if(document.pointerLockElement!==renderer.domElement)return;
+  ray.setFromCamera({x:0,y:0},cam);
+  const r=ray.intersectObject(mesh)[0];
+  if(!r)return;
+  const k=keys[r.instanceId],[x,y,z]=k.split(',').map(Number);
+  if(e.button===0){if(y>0)blocks.delete(k);}
+  else{
+    const n=r.face.normal,nk=key(x+n.x,y+n.y,z+n.z);
+    blocks.set(nk,sel);
+    if(collides(p))blocks.delete(nk);
+  }
+  rebuild();
+});
+
+const bar=document.getElementById('bar');
+function ui(){
+  bar.innerHTML='';
+  COLORS.forEach((col,i)=>{
+    const d=document.createElement('div');
+    d.className='slot'+(i===sel?' on':'');
+    d.style.background='#'+col.toString(16).padStart(6,'0');
+    d.textContent=i+1;bar.appendChild(d);
+  });
+}
+ui();
+
+let last=performance.now();
+function loop(t){
+  requestAnimationFrame(loop);
+  const dt=Math.min(.05,(t-last)/1000);last=t;
+  const f=(down.KeyW?1:0)-(down.KeyS?1:0), s=(down.KeyD?1:0)-(down.KeyA?1:0);
+  const sp=5*dt, mx=(-Math.sin(yaw)*f+Math.cos(yaw)*s)*sp, mz=(-Math.cos(yaw)*f-Math.sin(yaw)*s)*sp;
+  p.x+=mx;if(collides(p))p.x-=mx;
+  p.z+=mz;if(collides(p))p.z-=mz;
+  if(down.Space&&ground){vy=8;ground=false}
+  vy-=22*dt;p.y+=vy*dt;
+  if(collides(p)){p.y-=vy*dt;ground=vy<0;vy=0}else ground=false;
+  if(p.y<-20){p.set(16,25,16);vy=0}
+  cam.position.set(p.x,p.y+1.6,p.z);
+  cam.rotation.set(pitch,yaw,0);
+  renderer.render(scene,cam);
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
