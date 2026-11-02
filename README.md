@@ -4,6 +4,7 @@ Un joc în stilul Minecraft care rulează în browser, făcut cu React, Vite și
 
 - `minicraft.html` – prima versiune, un singur fișier HTML.
 - `minicraft-react/` – versiunea React, cu modurile Survival și Creative.
+- `city-builder/` – **Orașul Meu**, un joc separat de construit orașe (în stilul SimCity), cu React și three.js.
 
 ## Pornire
 
@@ -51,3 +52,15 @@ Apoi deschide http://localhost:5173/.
 | ▲ / ▼ | săritură / ghemuire |
 
 Ca să încerci pe telefon în aceeași rețea Wi-Fi, rulează `npm run dev` și deschide adresa „Network” afișată în terminal.
+
+## Orașul Meu (city-builder)
+
+```
+cd city-builder
+npm install
+npm run dev
+```
+
+Apoi deschide http://localhost:5174/.
+
+Construiești drumuri, zone de locuințe, comerț și industrie, centrale, turnuri de apă, parcuri și servicii (poliție, pompieri, școli). Clădirile cresc singure când au drum, curent și apă. Ai buget lunar cu taxe și întreținere, poluare, incendii și mașini pe drumuri. Orașul se salvează automat în browser. Se joacă și pe telefon: un deget construiește, două degete mută harta și fac zoom.
