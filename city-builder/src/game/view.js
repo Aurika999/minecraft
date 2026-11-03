@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { N, ANIMALS } from './config.js';
 import { animalGeometries, TINTS } from './animals.js';
+import { PERSON_TYPES, PERSON_COLORS } from './people.js';
 import { GRASS, WATER, FOREST, ZONES } from './city.js';
 
 const COL = {
@@ -206,23 +207,6 @@ function rideModels() {
   };
 }
 
-// un om din trei straturi: tricoul și pantalonii au culoarea lor, pielea primește un ton diferit
-function personModel() {
-  const skin = 0xf1c7a5, noUv = g => { g.deleteAttribute('uv'); return g; };
-  const head = paint(new THREE.SphereGeometry(.022, 8, 6).translate(0, .14, 0), skin);
-  const hair = paint(new THREE.SphereGeometry(.023, 8, 4, 0, Math.PI * 2, 0, Math.PI / 2).translate(0, .143, -.002), 0x3a2a1e);
-  const detail = mergeGeometries([
-    boxAt(.012, .045, .014, -.031, .072, 0, skin), boxAt(.012, .045, .014, .031, .072, 0, skin),
-    boxAt(.019, .01, .026, -.012, 0, .003, 0x222222), boxAt(.019, .01, .026, .012, 0, .003, 0x222222),
-    head, hair,
-  ].map(noUv));
-  return [
-    plain([boxAt(.05, .057, .034, 0, .062, 0)]),
-    plain([boxAt(.018, .055, .02, -.012, .008, 0), boxAt(.018, .055, .02, .012, .008, 0)]),
-    detail,
-  ];
-}
-
 // fațade cu ferestre: shaderul desenează ferestrele pe pereți, după mărimea fiecărei clădiri
 function facadeMaterial({ floor, cell, winW, winH, base = 0, top = .04, shop = 0, line = 0 }) {
   const m = new THREE.MeshLambertMaterial();
@@ -375,7 +359,17 @@ export class CityView {
     this.signalAt = new Map();
     this.trafficClock = 0;
     this.signalPool = new Pool(scene, new THREE.SphereGeometry(.5, 8, 6), 4000, { shadow: false, material: new THREE.MeshBasicMaterial() });
-    this.personLayers = layers(personModel(), MAX_PEOPLE);
+    // oamenii: pentru fiecare tip, corpul, detaliile (cap, păr, lucruri), picioarele și mâinile care se mișcă la mers
+    this.personPools = Object.fromEntries(Object.entries(PERSON_TYPES).map(([id, T]) => [id, {
+      top: new Pool(scene, T.geo.top, MAX_PEOPLE, { material: detailMat() }),
+      detail: new Pool(scene, T.geo.detail, MAX_PEOPLE, { material: detailMat() }),
+      leg: new Pool(scene, T.geo.leg, MAX_PEOPLE * 2, { material: detailMat() }),
+      arm: new Pool(scene, T.geo.arm, MAX_PEOPLE * 2, { material: detailMat() }),
+    }]));
+    this.personWeights = Object.entries(PERSON_TYPES).map(([id, T]) => [id, T.weight]);
+    this.mBase = new THREE.Matrix4();
+    this.mLimb = new THREE.Matrix4();
+    this.mOut = new THREE.Matrix4();
     this.people = [];
     const tm = trainModels();
     this.trainLayers = { loco: layers(tm.loco, MAX_TRAINS), wagon: layers(tm.wagon, MAX_TRAINS * 6) };
@@ -453,7 +447,7 @@ export class CityView {
 
   zoomBy(f, cx, cy) {
     const before = cx != null && this.groundAt(cx, cy);
-    this.zoom = Math.max(.45, Math.min(8, this.zoom * f));
+    this.zoom = Math.max(.45, Math.min(14, this.zoom * f));
     this.updateCamera();
     const after = before && this.groundAt(cx, cy);
     if (before && after) { this.target.x += before.x - after.x; this.target.z += before.z - after.z; this.updateCamera(); }
@@ -603,7 +597,7 @@ export class CityView {
     this.turbines = [];
     this.ranchSpots = [];
     this.rides = { wheels: [], carousels: [], coasters: [] };
-    const bigLots = this.findBigLots(city), crossTiles = new Set(), signals = [];
+    const bigLots = this.findBigLots(city), crossTiles = new Set(), signals = [], interTiles = new Set();
     let stations = 0;
     for (let z = 0; z < N; z++) for (let x = 0; x < N; x++) {
       const i = z * N + x, t = city.terrain[i], k = city.kind[i], lvl = city.level[i], v = city.variant[i];
@@ -638,6 +632,7 @@ export class CityView {
         const nb = [[1, 0], [-1, 0], [0, 1], [0, -1]];
         const isRoad = (a, b) => a >= 0 && b >= 0 && a < N && b < N && ROADISH.has(city.kind[b * N + a]);
         const links = nb.filter(([dx, dz]) => isRoad(x + dx, z + dz)).length;
+        if (links >= 3) interTiles.add(i);
         if (t === WATER) {
           // pod: tablier la nivelul drumurilor, pilon în apă, parapete pe marginile fără drum
           this.part('box', cx, -.06, cz, 1, .06, 1, COL.road);
@@ -763,6 +758,7 @@ export class CityView {
     this.roads = roads;
     this.roadSet = new Set(roads.map(([x, z]) => z * N + x));
     this.crossTiles = crossTiles;
+    this.interTiles = interTiles;
     this.signals = signals;
     this.signalAt = new Map(signals.map(s => [s.i, s]));
     this.walk = this.buildWalk(city);
@@ -1435,13 +1431,19 @@ export class CityView {
     if (!W || W.nodes.length < 2) { list.length = 0; return; }
     const rnd = arr => pick(arr, Math.random() * 1000 | 0);
     const pedGreen = s => light(s) === 'red' && phase(s) < 7.6; // destul timp ca să ajungă dincolo
+    // tipul omului se alege după cât de des apare; culorile după tip (unele sunt fixe: costum, haină galbenă)
+    const total = this.personWeights.reduce((s, [, w]) => s + w, 0);
+    const pickType = () => { let r = Math.random() * total; for (const [id, w] of this.personWeights) { if (r < w) return id; r -= w; } return 'casual'; };
+    const color = c => typeof c === 'string' ? rnd(PERSON_COLORS[c]) : c;
     const spawn = () => {
       const a = Math.random() * W.nodes.length | 0, opts = W.adj[a].filter(e => !e.cross);
       if (!opts.length) return null;
+      const type = pickType(), T = PERSON_TYPES[type], skin = rnd(PERSON_COLORS.skins), top = color(T.top);
       return {
         a: W.nodes[a].key, b: W.nodes[opts[Math.random() * opts.length | 0].to].key, t: Math.random(), cross: null, waiting: null,
-        speed: .22 + Math.random() * .16, yaw: Math.random() * 6.3, step: Math.random() * 6,
-        shirt: rnd(COL.shirts), pants: rnd(COL.pants), skin: rnd(COL.skins),
+        speed: T.speed[0] + Math.random() * (T.speed[1] - T.speed[0]), yaw: Math.random() * 6.3, step: Math.random() * 6, type,
+        top, skin: T.skinTint === false ? 0xffffff : skin, arms: T.arms ?? top,
+        legs: T.legs === 'skin' ? new THREE.Color(0xf1c7a5).multiply(new THREE.Color(skin)).getHex() : color(T.legs),
       };
     };
     for (let tries = 0; list.length < target && tries < 20; tries++) { const p = spawn(); if (p) list.push(p); }
@@ -1474,6 +1476,33 @@ export class CityView {
     }
   }
 
+  // un om: corpul și detaliile stau pe loc, picioarele se mișcă din șold și mâinile din umăr, pe rând
+  drawPerson(p, dt) {
+    const T = PERSON_TYPES[p.type], P = this.personPools[p.type];
+    if (!T) return;
+    const moving = !p.waiting && dt > 0;
+    if (moving) p.step += dt * p.speed * (T.pedal ? 30 : 42);
+    const sw = moving ? Math.sin(p.step) : 0;
+    const bob = !T.pedal && moving ? Math.abs(sw) * .008 * (T.swing ?? 1) : 0;
+    this.q.setFromAxisAngle(this.up, p.yaw);
+    this.mBase.compose(this.v.set(p.x, .025 + bob, p.z), this.q, this.s.set(1.3, 1.3, 1.3)); // puțin mai mari, ca să se vadă bine
+    P.top.add(this.mBase, this.c.setHex(p.top));
+    P.detail.add(this.mBase, this.c.setHex(p.skin));
+    const limb = (pool, ox, oy, angle, hex) => {
+      this.mLimb.makeRotationX(angle).setPosition(ox, oy, 0);
+      this.mOut.multiplyMatrices(this.mBase, this.mLimb);
+      pool.add(this.mOut, this.c.setHex(hex));
+    };
+    [-1, 1].forEach((side, j) => {
+      // picioarele: la mers se balansează înainte-înapoi; biciclistul pedalează
+      const leg = T.pedal ? -.9 + Math.sin(p.step + j * Math.PI) * .45 : side * sw * (T.swing ?? .55);
+      limb(P.leg, side * T.hip[0], T.hip[1], leg, p.legs);
+      // mâinile: invers față de picioare, sau fixe (cărucior, sacoșă, servietă, ghidon)
+      const arm = T.armFixed?.[j] ?? -side * sw * (T.armSwing ?? .6);
+      limb(P.arm, side * T.shoulder[0], T.shoulder[1], arm, p.arms);
+    });
+  }
+
   updateTraffic(dt, cars, people) {
     const rnd = arr => pick(arr, Math.random() * 1000 | 0), key = ([x, z]) => z * N + x;
     // tipul mașinii se alege după cât de des apare (autoturismele cel mai des, ambulanțele cel mai rar)
@@ -1488,7 +1517,23 @@ export class CityView {
     // opresc doar mașinile care intră în intersecție pe strada aceea
     const armCode = (dx, dz) => (dx + 1) * 3 + dz + 1;
     const busy = new Set(this.people.filter(p => p.cross?.arm && !p.waiting).map(p => p.cross.tile * 10 + armCode(...p.cross.arm)));
+    // intersecțiile: ce mașini sunt acum înăuntru și pe ce stradă au intrat
+    const inside = new Map(), entry = c => armCode(c.from[0] - c.to[0], c.from[1] - c.to[1]);
+    for (const c of this.cars) {
+      const k = c.t >= .5 ? key(c.to) : key(c.from);
+      if (!this.interTiles?.has(k)) continue;
+      const code = c.t >= .5 ? entry(c) : (c.inCode ?? -1);
+      if (!inside.has(k)) inside.set(k, new Set());
+      inside.get(k).add(code);
+    }
     const carStops = c => {
+      // în fața intersecției: intră doar dacă înăuntru nu e o mașină venită de pe altă stradă
+      const ti = key(c.to);
+      if (c.t >= .38 && c.t < .5 && this.interTiles?.has(ti)) {
+        const occ = inside.get(ti), mine = entry(c);
+        if (occ && [...occ].some(code => code !== mine)) return true;
+        c.inCode = mine;
+      }
       if (c.t < .4 || c.t > .7) return false; // a trecut deja de linia de oprire
       const s = this.signalAt.get(key(c.to));
       return (s && light(s) !== 'green') || busy.has(key(c.to) * 10 + armCode(c.from[0] - c.to[0], c.from[1] - c.to[1]));
@@ -1511,7 +1556,7 @@ export class CityView {
           const dx = o.x - c.x, dz = o.z - c.z;
           const ahead = dx * hx + dz * hz, side = Math.abs(dx * hz - dz * hx);
           if (ahead > .01 && ahead < GAP && side < .13) return true; // pe aceeași bandă, în față
-          if (ahead > .01 && dx * dx + dz * dz < .28 * .28) {
+          if (ahead > .01 && ((ahead < .42 && side < .24) || dx * dx + dz * dz < .28 * .28)) {
             // foarte aproape, în viraj sau în intersecție; dacă și cealaltă mașină ne are în față, trece cea cu numărul mai mic
             const theyWait = -(dx * Math.sin(o.yaw) + dz * Math.cos(o.yaw)) > .01;
             if (!theyWait || c.id > o.id) return true;
@@ -1540,14 +1585,10 @@ export class CityView {
       }
     }
     sp.commit();
-    const all = [...this.carModels, this.personLayers].flat();
+    const all = [...this.carModels.flat(), ...Object.values(this.personPools).flatMap(o => Object.values(o))];
     for (const pool of all) pool.n = 0;
     for (const c of this.cars) this.draw(this.carModels[c.model], c, 0, [c.color, null]);
-    for (const p of this.people) {
-      p.step += dt * p.speed * 40;
-      // pașii: omul se ridică puțin la fiecare pas
-      this.draw(this.personLayers, p, .025 + Math.abs(Math.sin(p.step)) * .014, [p.shirt, p.pants, p.skin], 1.25);
-    }
+    for (const p of this.people) this.drawPerson(p, dt);
     for (const pool of all) pool.commit();
     this.updateTrains(dt);
   }
