@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Engine } from './game/engine.js';
-import { TOOLS, TOOL } from './game/config.js';
+import { TOOLS, TOOL, ANIMALS } from './game/config.js';
 
 const fmt = n => Math.round(n).toLocaleString('ro-RO');
 
@@ -24,7 +24,7 @@ export default function App() {
           <TopBar ui={ui} g={g} setPanel={setPanel} />
           <Demand d={ui.demand} />
           <Messages list={ui.messages} />
-          {ui.info && <Info info={ui.info} onClose={() => g.select(null)} />}
+          {ui.info && <Info info={ui.info} g={g} money={ui.money} onClose={() => g.select(null)} />}
           <MapButtons g={g} />
           <Toolbar ui={ui} g={g} />
           {panel === 'budget' && <Budget ui={ui} g={g} onClose={() => setPanel(null)} />}
@@ -82,10 +82,10 @@ function Messages({ list }) {
   return <div className="messages">{list.map(m => <div key={m.id}>{m.text}</div>)}</div>;
 }
 
-function Info({ info, onClose }) {
+function Info({ info, g, money, onClose }) {
   const yes = (v, label) => <li className={v ? 'ok' : 'bad'}>{v ? '✔' : '✖'} {label}</li>;
   return (
-    <aside className="card info">
+    <aside className={'card info' + (info.ranch != null ? ' wide' : '')}>
       <div className="card-head">
         <h3>{info.title}</h3>
         <button className="icon small" onClick={onClose} aria-label="Închide">✕</button>
@@ -93,7 +93,8 @@ function Info({ info, onClose }) {
       <p className="muted">Pătrățelul ({info.x}, {info.z})</p>
       {info.level != null && <p>Nivel <b>{info.level}</b> din 3 · {info.residents != null ? `${info.residents} locuitori` : `${info.jobs} locuri de muncă`}</p>}
       {info.crop && <p>🌱 <b>{info.crop}</b> · {info.stage}</p>}
-      {!info.crop && <ul className="checks">
+      {info.ranch != null && <RanchPicker info={info} g={g} money={money} />}
+      {!info.crop && info.ranch == null && <ul className="checks">
         {yes(info.road, 'Drum aproape')}
         {yes(info.powered, 'Curent electric')}
         {yes(info.watered, 'Apă')}
@@ -102,6 +103,36 @@ function Info({ info, onClose }) {
       <Meter label="Poluare" v={info.pollution} />
       {info.problem && <p className="problem">⚠ {info.problem}</p>}
     </aside>
+  );
+}
+
+function RanchPicker({ info, g, money }) {
+  const cur = ANIMALS[info.ranch];
+  const group = (title, list) => (
+    <>
+      <h4>{title}</h4>
+      <div className="ranch-grid">
+        {list.map(a => {
+          const j = ANIMALS.indexOf(a), on = j === info.ranch;
+          return (
+            <button key={a.id} className={'ranch-opt' + (on ? ' on' : '')} disabled={!on && a.price > money}
+              onClick={() => g.setRanch(info.x, info.z, j)} title={`${a.name}: ${a.product}`}>
+              <span className="ti">{a.icon}</span>
+              <span className="tn">{a.name}</span>
+              <span className="tc">{on ? 'la fermă' : `${a.price} $`}</span>
+              <span className="tc gain">+{a.income} $/lună</span>
+            </button>
+          );
+        })}
+      </div>
+    </>
+  );
+  return (
+    <div className="ranch">
+      <p>Acum: <b>{cur.icon} {cur.name}</b> · {cur.product} · <span className="pos">+{cur.income} $ pe lună</span></p>
+      {group('🐾 Animale', ANIMALS.filter(a => !a.bird))}
+      {group('🪶 Păsări', ANIMALS.filter(a => a.bird))}
+    </div>
   );
 }
 
@@ -171,7 +202,7 @@ function Budget({ ui, g, onClose }) {
           <tbody>
             <tr><td>Taxe încasate</td><td className="pos">+{fmt(m.income)} $</td></tr>
             {m.energy > 0 && <tr><td>Energie vândută</td><td className="pos">+{fmt(m.energy)} $</td></tr>}
-            {m.ranch > 0 && <tr><td>Lapte și ouă de la fermă</td><td className="pos">+{fmt(m.ranch)} $</td></tr>}
+            {m.ranch > 0 && <tr><td>Produse de la ferme</td><td className="pos">+{fmt(m.ranch)} $</td></tr>}
             {m.farm > 0 && <tr><td>Legume vândute</td><td className="pos">+{fmt(m.farm)} $</td></tr>}
             <tr><td>Întreținere drumuri</td><td className="neg">−{fmt(m.roads)} $</td></tr>
             <tr><td>Servicii (curent, apă, poliție…)</td><td className="neg">−{fmt(m.services)} $</td></tr>

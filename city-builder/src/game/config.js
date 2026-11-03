@@ -31,7 +31,7 @@ export const TOOLS = [
   { id: 'park', name: 'Parc', icon: '🌳', cost: 150, upkeep: 2, radius: 4, mode: 'rect', help: 'Crește valoarea terenului din jur.' },
   { id: 'garden', name: 'Curte cu flori', icon: '🌷', cost: 40, upkeep: 1, radius: 3, mode: 'rect', help: 'Straturi de flori, gard viu și alei. Oamenii se plimbă aici, iar terenul din jur se scumpește.' },
   { id: 'farm', name: 'Legume', icon: '🥕', cost: 30, mode: 'rect', help: 'Plantează legume. Cresc singure, iar când sunt coapte se culeg și se vând. Lângă apă cresc mai repede.' },
-  { id: 'ranch', name: 'Fermă', icon: '🐄', cost: 600, sells: 80, mode: 'tap', help: 'Fermă cu hambar, siloz, vaci și găini. Vinde lapte și ouă: +80 $ pe lună.' },
+  { id: 'ranch', name: 'Fermă', icon: '🐄', cost: 600, mode: 'tap', help: 'Fermă cu animale sau păsări. Apasă pe ea cu 🔍 Info ca să alegi ce crești: fiecare aduce alți bani.' },
   { id: 'station', name: 'Gară', icon: '🚉', cost: 1500, upkeep: 30, radius: 10, mode: 'tap', help: 'Pune-o lângă șine: vin mai multe trenuri, iar terenul din jur se scumpește.' },
   { id: 'police', name: 'Poliție', icon: '👮', cost: 800, upkeep: 40, radius: 9, mode: 'tap', help: 'Siguranță: oamenii sunt mai mulțumiți.' },
   { id: 'fire', name: 'Pompieri', icon: '🚒', cost: 800, upkeep: 40, radius: 9, mode: 'tap', help: 'Fără pompieri pot izbucni incendii.' },
@@ -52,4 +52,16 @@ export const KIND_NAME = {
 export const CROPS = ['Varză', 'Morcovi', 'Roșii', 'Dovleci', 'Porumb', 'Vinete'];
 export const CROP_STAGES = ['Semințe puse', 'Răsaduri', 'Cresc', 'Gata de cules'];
 export const HARVEST_PRICE = 12;
+// ce poți crește la fermă: prețul se plătește când schimbi, venitul vine lunar
+export const ANIMALS = [
+  { id: 'cow', name: 'Vaci', icon: '🐄', product: 'lapte', price: 300, income: 80, count: 3 },
+  { id: 'pig', name: 'Porci', icon: '🐖', product: 'carne', price: 250, income: 70, count: 4 },
+  { id: 'sheep', name: 'Oi', icon: '🐑', product: 'lână', price: 250, income: 65, count: 4 },
+  { id: 'goat', name: 'Capre', icon: '🐐', product: 'brânză', price: 200, income: 60, count: 4 },
+  { id: 'horse', name: 'Cai', icon: '🐴', product: 'plimbări călare', price: 500, income: 110, count: 2 },
+  { id: 'chicken', name: 'Găini', icon: '🐔', product: 'ouă', price: 100, income: 45, count: 7, bird: true },
+  { id: 'turkey', name: 'Curcani', icon: '🦃', product: 'carne de curcan', price: 200, income: 60, count: 4, bird: true },
+  { id: 'duck', name: 'Rațe', icon: '🦆', product: 'ouă și pene', price: 150, income: 50, count: 6, bird: true },
+];
+
 export const MONTHS = ['Ianuarie', 'Februarie', 'Martie', 'Aprilie', 'Mai', 'Iunie', 'Iulie', 'August', 'Septembrie', 'Octombrie', 'Noiembrie', 'Decembrie'];

@@ -1,5 +1,5 @@
 // Leagă simularea, grafica și controalele; trimite starea către React.
-import { N, TOOL, DAY_SECONDS } from './config.js';
+import { N, TOOL, DAY_SECONDS, ANIMALS } from './config.js';
 import { City, ZONES } from './city.js';
 import { CityView } from './view.js';
 
@@ -67,6 +67,15 @@ export class Engine {
   rotate(d) { this.view.rotate(d); }
   zoom(f) { this.view.zoomBy(f); }
   select(t) { this.selected = t; this.view.setSelected(t); this.emit(); }
+
+  setRanch(x, z, j) {
+    const r = this.city.setAnimal(this.city.idx(x, z), j);
+    if (r.error) { this.msg(r.error); return; }
+    const a = ANIMALS[j];
+    this.msg(`${a.icon} Ferma are acum ${a.name.toLowerCase()}: ${a.product}, +${a.income} $ pe lună.`);
+    this.save();
+    this.emit();
+  }
 
   newCity() {
     this.city = City.create();
@@ -191,6 +200,8 @@ export class Engine {
     this.view.rebuild(this.city);
     this.builtVersion = this.city.version;
     if (TOOL[this.tool].zone || this.tool === 'road') this.hints(true);
+    // după ce pui o fermă, se deschide meniul ei ca să alegi animalele
+    if (this.tool === 'ranch') { this.setTool('inspect'); this.select(b); }
     this.save();
   }
 

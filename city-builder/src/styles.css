@@ -76,6 +76,14 @@ button { font: inherit; color: inherit; cursor: pointer; border: 0; background: 
 .meter { display: grid; grid-template-columns: 1fr auto; font-size: 13px; margin-top: 8px; }
 .mtrack { grid-column: 1 / -1; height: 6px; background: rgba(0, 0, 0, .08); border-radius: 3px; overflow: hidden; margin-top: 3px; }
 .mtrack i { display: block; height: 100%; }
+.info.wide { width: 330px; }
+.ranch h4 { margin: 10px 0 4px; font-size: 13px; color: var(--muted); }
+.ranch-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(70px, 1fr)); gap: 6px; }
+.ranch-opt { display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 6px 2px; border-radius: 10px; background: rgba(0, 0, 0, .05); }
+.ranch-opt .gain { color: var(--pos); font-weight: 600; opacity: 1; }
+.ranch-opt.on { background: var(--accent); color: #fff; }
+.ranch-opt.on .gain { color: #d6ffe0; }
+.ranch-opt:disabled { opacity: .45; cursor: not-allowed; }
 .problem { background: #fff4e5; color: #8a4b00; padding: 6px 8px; border-radius: 8px; font-size: 13px; }
 
 /* butoane hartă */
@@ -130,6 +138,7 @@ button { font: inherit; color: inherit; cursor: pointer; border: 0; background: 
   .demand { top: auto; bottom: calc(150px + env(safe-area-inset-bottom, 0px)); }
   .messages { top: 92px; width: calc(100vw - 20px); }
   .info { top: auto; bottom: calc(150px + env(safe-area-inset-bottom, 0px)); left: 50%; right: auto; transform: translateX(-50%); width: min(300px, calc(100vw - 120px)); }
+  .info.wide { width: calc(100vw - 20px); max-height: 52vh; overflow: auto; }
   .tool { width: 62px; }
   .ti { font-size: 21px; }
   .tool-help { font-size: 12px; }

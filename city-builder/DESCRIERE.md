@@ -41,7 +41,7 @@ Nu există un final fix. Încerci să ai un oraș **cât mai mare**, cu **oameni
 | 🔍 Info | — | — | — | Arată detalii despre un pătrățel |
 | 🛣️ Drum | 10 $ | 1 $ / pătrățel | — | Zonele cresc doar lângă drumuri, la cel mult 2 pătrățele |
 | 🛤️ Cale ferată | 25 $ | 2 $ / pătrățel | — | Șine pe care circulă trenuri. Peste drum face trecere la nivel, peste apă pod |
-| 🐄 Fermă | 600 $ | — | — | Hambar, siloz, vaci și găini. Vinde lapte și ouă: **+80 $ / lună** |
+| 🐄 Fermă | 600 $ | — | — | Animale sau păsări la alegere. Aduce între **+45 și +110 $ / lună** |
 | 🚉 Gară | 1.500 $ | 30 $ | 10 | Aduce mai multe trenuri și crește valoarea terenului |
 | 🌉 Pod (drum peste apă) | 60 $ | 3 $ / pătrățel | — | Leagă malurile. Se face tot cu unealta Drum |
 | 🏠 Locuințe (R) | 20 $ | — | — | Aici se mută oamenii |
@@ -141,7 +141,20 @@ Butonul 📊 deschide raportul lunii trecute și cursorul pentru **taxe**, într
 - 🌬️ **Eolienele** au elicele care se învârt. Trage peste mai multe pătrățele și faci un parc eolian.
 - ☀️ **Panourile solare** sunt panouri albastre, înclinate spre soare.
 - Amândouă dau curent clădirilor din jur, la fel ca centrala, dar **nu poluează** și **vând energie** în fiecare lună.
-- 🐄 **Ferma** vinde lapte și ouă în fiecare lună.
+- 🐄 **Ferma** pornește cu vaci. Apasă pe ea cu 🔍 Info (meniul se deschide singur imediat după ce o construiești) și alege ce vrei să crești:
+
+| Ce crești | Produs | Preț | Venit pe lună |
+|---|---|---|---|
+| 🐄 Vaci | lapte | 300 $ | +80 $ |
+| 🐖 Porci | carne | 250 $ | +70 $ |
+| 🐑 Oi | lână | 250 $ | +65 $ |
+| 🐐 Capre | brânză | 200 $ | +60 $ |
+| 🐴 Cai | plimbări călare | 500 $ | +110 $ |
+| 🐔 Găini | ouă | 100 $ | +45 $ |
+| 🦃 Curcani | carne de curcan | 200 $ | +60 $ |
+| 🦆 Rațe | ouă și pene | 150 $ | +50 $ |
+
+  Animalele sunt în 3D și **se plimbă prin țarc**: merg, se opresc, se întorc, iar păsările ciugulesc. Animalele stau în hambar roșu, păsările în coteț. Rațele au un lac, porcii au o baltă cu noroi.
 - Toate se amortizează în câteva luni. În 📊 Buget apar la „Energie vândută” și „Lapte și ouă de la fermă”.
 
 ### Calea ferată și trenurile

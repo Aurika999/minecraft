@@ -1,7 +1,8 @@
 // Grafica 3D: harta, clădirile, mașinile, camera izometrică.
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { N } from './config.js';
+import { N, ANIMALS } from './config.js';
+import { animalGeometries, TINTS } from './animals.js';
 import { GRASS, WATER, FOREST, ZONES } from './city.js';
 
 const COL = {
@@ -270,6 +271,11 @@ export class CityView {
     this.trainLayers = { loco: layers(tm.loco, MAX_TRAINS), wagon: layers(tm.wagon, MAX_TRAINS * 6) };
     this.trains = [];
     this.rotors = new Pool(scene, rotorModel(), 400);
+    this.animalPools = Object.fromEntries(Object.entries(animalGeometries()).map(([id, geo]) =>
+      [id, new Pool(scene, geo, 600, { material: new THREE.MeshLambertMaterial({ vertexColors: true }) })]));
+    this.animals = new Map();
+    this.ranchSpots = [];
+    this.xAxis = new THREE.Vector3(1, 0, 0);
     this.turbines = [];
     this.spinQ = new THREE.Quaternion();
     this.zAxis = new THREE.Vector3(0, 0, 1);
@@ -385,6 +391,7 @@ export class CityView {
     for (const p of Object.values(this.pools)) p.n = 0;
     const roads = [], rails = [];
     this.turbines = [];
+    this.ranchSpots = [];
     let stations = 0;
     for (let z = 0; z < N; z++) for (let x = 0; x < N; x++) {
       const i = z * N + x, t = city.terrain[i], k = city.kind[i], lvl = city.level[i], v = city.variant[i];
@@ -520,6 +527,7 @@ export class CityView {
     this.rails = rails;
     this.railSet = new Set(rails.map(([x, z]) => z * N + x));
     this.stations = stations;
+    this.syncAnimals();
   }
 
   // un pod: în ce direcție merge și al câtelea pătrățel e din lungimea lui
@@ -535,25 +543,55 @@ export class CityView {
     return { dx, dz, idx: s, len: s + e + 1 };
   }
 
-  cow(x, z, a, v) {
-    const c = Math.cos(a), s = Math.sin(a), at = (u, w) => [x + u * c + w * s, z - u * s + w * c];
-    for (const [u, w] of [[-.055, -.03], [-.055, .03], [.055, -.03], [.055, .03]]) {
-      const [lx, lz] = at(u, w);
-      this.part('box', lx, 0, lz, .02, .05, .02, 0xf2f2f2, a);
+  // animalele rămân pe loc când se reconstruiește harta; se schimbă doar dacă ferma primește alt fel de animale
+  syncAnimals() {
+    const next = new Map();
+    for (const spot of this.ranchSpots) {
+      const old = this.animals.get(spot.i);
+      if (old && old.type === spot.type) { old.spot = spot; next.set(spot.i, old); continue; }
+      const a = ANIMALS[spot.type], tints = TINTS[a.id], list = [];
+      for (let j = 0; j < a.count; j++) {
+        const lx = -.34 + Math.random() * .68, lz = .07 + Math.random() * .3;
+        list.push({ lx, lz, tx: lx, tz: lz, yaw: Math.random() * 6.3, wait: Math.random() * 3, phase: Math.random() * 6, tint: pick(tints, j + spot.v) });
+      }
+      next.set(spot.i, { type: spot.type, spot, list });
     }
-    this.part('box', x, .05, z, .18, .085, .09, 0xffffff, a);
-    const [sx, sz] = at(v % 2 ? .02 : -.03, 0);
-    this.part('box', sx, .07, sz, .06, .05, .095, 0x222222, a);
-    const [hx, hz] = at(.11, 0);
-    this.part('box', hx, .085, hz, .06, .06, .06, 0xffffff, a);
-    const [nx, nz] = at(.145, 0);
-    this.part('box', nx, .085, nz, .02, .035, .045, 0xf4a6a6, a);
+    this.animals = next;
   }
 
-  chicken(x, z, v) {
-    this.part('ball', x, 0, z, .05, .05, .05, v % 3 ? 0xffffff : 0xb5651d);
-    this.part('ball', x + .018, .035, z, .028, .028, .028, v % 3 ? 0xffffff : 0xb5651d);
-    this.part('box', x + .018, .062, z, .01, .012, .012, 0xe53935);
+  // animalele se plimbă prin țarc și se opresc; păsările ciugulesc
+  updateAnimals(dt) {
+    for (const p of Object.values(this.animalPools)) p.n = 0;
+    for (const { type, spot, list } of this.animals.values()) {
+      const a = ANIMALS[type], pool = this.animalPools[a.id], speed = a.bird ? .07 : a.id === 'horse' ? .08 : .035;
+      for (const an of list) {
+        const walking = an.wait <= 0;
+        if (!walking) an.wait -= dt;
+        else {
+          const dx = an.tx - an.lx, dz = an.tz - an.lz, d = Math.hypot(dx, dz);
+          if (d < .01) {
+            an.wait = 1 + Math.random() * (a.bird ? 2.5 : 5);
+            an.tx = -.34 + Math.random() * .68;
+            an.tz = .07 + Math.random() * .3;
+          } else {
+            const step = Math.min(d, speed * dt);
+            an.lx += dx / d * step;
+            an.lz += dz / d * step;
+            let t = Math.atan2(dx, dz) - an.yaw;
+            t = Math.atan2(Math.sin(t), Math.cos(t));
+            an.yaw += t * Math.min(1, dt * 5);
+          }
+        }
+        an.phase += dt;
+        const y = walking ? Math.abs(Math.sin(an.phase * (a.bird ? 14 : 8))) * (a.bird ? .006 : .004) : 0;
+        const wx = spot.cx + an.lx * spot.cs + an.lz * spot.sn, wz = spot.cz - an.lx * spot.sn + an.lz * spot.cs;
+        this.q.setFromAxisAngle(this.up, an.yaw + spot.r);
+        if (a.bird && !walking) this.q.multiply(this.spinQ.setFromAxisAngle(this.xAxis, Math.max(0, Math.sin(an.phase * 3)) * .5));
+        this.m.compose(this.v.set(wx, y, wz), this.q, this.s.set(1, 1, 1));
+        pool.add(this.m, this.c.setHex(an.tint));
+      }
+    }
+    for (const p of Object.values(this.animalPools)) p.commit();
   }
 
   // clădirile se întorc cu fața spre un drum vecin
@@ -897,26 +935,36 @@ export class CityView {
       return .5;
     }
     if (k === 'ranch') {
-      // hambar roșu, siloz, baloți de fân, vaci și găini într-un țarc de lemn
-      const fence = 0x8d5a3b;
+      // țarc de lemn; hambar pentru animale sau coteț pentru păsări; lac pentru rațe, noroi pentru porci
+      const an = ANIMALS[lvl] || ANIMALS[0], fence = 0x8d5a3b;
       for (const q of [-1, 1]) {
         this.part('box', cx + q * .47, .03, cz, .025, .03, .95, fence);
         this.part('box', cx, .03, cz + q * .47, .95, .03, .025, fence);
         this.part('box', cx + q * .47, .08, cz, .025, .02, .95, fence);
         this.part('box', cx, .08, cz + q * .47, .95, .02, .025, fence);
       }
-      P('box', -.17, 0, -.18, .4, .3, .36, 0xc62f2a);
-      P('gable', -.17, .3, -.18, .46, .18, .4, 0x6b3a2a);
-      P('box', -.17, 0, .005, .2, .21, .012, 0xffffff);
-      P('box', -.17, 0, .012, .16, .18, .01, 0x8b2420);
-      P('box', -.17, .22, -.17, .09, .06, .38, 0xffffff);
+      if (an.bird) {
+        P('box', -.2, 0, -.22, .34, .2, .28, 0xe9d7b5);
+        P('gable', -.2, .2, -.22, .4, .14, .32, 0xc0392b);
+        P('box', -.2, .03, -.075, .07, .08, .012, 0x5a3a2e);
+        P('box', -.2, 0, -.03, .06, .02, .1, 0xa0784a);
+        P('cyl', .08, 0, -.2, .06, .05, .06, 0xb0b8c0);
+      } else {
+        P('box', -.17, 0, -.18, .4, .3, .36, 0xc62f2a);
+        P('gable', -.17, .3, -.18, .46, .18, .4, 0x6b3a2a);
+        P('box', -.17, 0, .005, .2, .21, .012, 0xffffff);
+        P('box', -.17, 0, .012, .16, .18, .01, 0x8b2420);
+        P('box', -.17, .22, -.17, .09, .06, .38, 0xffffff);
+        P('box', .32, 0, .0, .05, .04, .16, fence); // jgheab
+      }
       P('cyl', .26, 0, -.26, .17, .5, .17, 0xd7dde3);
       P('ball', .26, .42, -.26, .17, .15, .17, 0x8f98a1);
       P('cyl', .06, 0, -.33, .1, .07, .1, 0xe8c547);
-      P('cyl', .12, 0, -.22, .1, .07, .1, 0xe8c547);
-      this.cow(cx + .14 * cs + .18 * sn, cz - .14 * sn + .18 * cs, r + .4 + (v % 3) * .5, v);
-      this.cow(cx - .1 * cs + .33 * sn, cz + .1 * sn + .33 * cs, r - 1.2 + (v % 2), v + 1);
-      for (let j = 0; j < 3; j++) this.chicken(cx + (.2 + j * .08) * cs + (.36 - (j % 2) * .07) * sn, cz - (.2 + j * .08) * sn + (.36 - (j % 2) * .07) * cs, v + j);
+      if (an.id === 'duck') {
+        P('cyl', .18, 0, .22, .36, .008, .3, 0xd9d2c5);
+        P('cyl', .18, .002, .22, .32, .012, .26, 0x4fc3f7);
+      } else if (an.id === 'pig') P('cyl', .18, 0, .24, .3, .008, .22, 0x7a5232);
+      this.ranchSpots.push({ i, type: ANIMALS[lvl] ? lvl : 0, cx, cz, cs, sn, r, v });
       return .7;
     }
     if (k === 'police') {
@@ -1085,6 +1133,7 @@ export class CityView {
     d = Math.atan2(Math.sin(d), Math.cos(d));
     if (Math.abs(d) > .001) { this.yaw += d * Math.min(1, dt * 8); this.updateCamera(); }
     this.pools.warn.mesh.position.y = Math.sin(performance.now() / 300) * .06;
+    this.updateAnimals(dt);
     const spin = performance.now() / 1000 * 2.4, p = this.rotors;
     p.n = 0;
     for (const t of this.turbines) {

@@ -1,7 +1,7 @@
 // Simularea orașului: teren, zone, servicii, creștere, buget. Fără grafică.
 import {
   N, START_MONEY, DAYS_PER_MONTH, ROAD_UPKEEP, FOREST_CLEAR, BRIDGE_COST, BRIDGE_UPKEEP, RESIDENTS, RESIDENTS_H, JOBS_C, JOBS_I,
-  TOOL, KINDS, KIND_NAME, MONTHS, CROPS, CROP_STAGES, HARVEST_PRICE,
+  TOOL, KINDS, KIND_NAME, MONTHS, ANIMALS, CROPS, CROP_STAGES, HARVEST_PRICE,
 } from './config.js';
 
 export const GRASS = 0, WATER = 1, FOREST = 2;
@@ -197,13 +197,26 @@ export class City {
       if (k === 'rail' || k === 'crossing') roadCost += water ? BRIDGE_UPKEEP : TOOL.rail.upkeep;
       else if (k && k !== 'road' && TOOL[k].upkeep) services += TOOL[k].upkeep;
       // energia de la eoliene și panouri, produsele de la fermă
-      if (TOOL[k]?.sells) { if (k === 'ranch') ranch += TOOL[k].sells; else energy += TOOL[k].sells; }
+      if (k === 'ranch') ranch += (ANIMALS[this.level[i]] || ANIMALS[0]).income;
+      else if (TOOL[k]?.sells) energy += TOOL[k].sells;
     });
     const expenses = roadCost + services;
     const earned = income + farm + energy + ranch;
     this.money += earned - expenses;
     this.lastMonth = { income, farm, energy, ranch, roads: roadCost, services, expenses, net: earned - expenses };
     this.monthEnded = true;
+  }
+
+  // schimbă ce se crește la o fermă (level = indicele din ANIMALS)
+  setAnimal(i, j) {
+    const a = ANIMALS[j];
+    if (this.kind[i] !== 'ranch' || !a) return { error: 'Aici nu e o fermă.' };
+    if (this.level[i] === j) return { error: `Ferma are deja ${a.name.toLowerCase()}.` };
+    if (a.price > this.money) return { error: `Nu ai destui bani: ${a.name.toLowerCase()} costă ${a.price} $.` };
+    this.money -= a.price;
+    this.level[i] = j;
+    this.version++;
+    return { cost: a.price };
   }
 
   // de ce nu se poate folosi unealta aici (sau null dacă se poate)
@@ -268,6 +281,7 @@ export class City {
       value: Math.round(this.value[i] * 100), pollution: Math.round(this.pollution[i] * 100),
       powered: !!this.powered[i], watered: !!this.watered[i], road: !!this.road[i],
     };
+    if (k === 'ranch') info.ranch = this.level[i] < ANIMALS.length ? this.level[i] : 0;
     if (k === 'farm') {
       info.crop = CROPS[this.variant[i] % CROPS.length];
       info.stage = CROP_STAGES[l];
