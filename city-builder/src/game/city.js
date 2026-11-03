@@ -1,11 +1,13 @@
 // Simularea orașului: teren, zone, servicii, creștere, buget. Fără grafică.
 import {
-  N, START_MONEY, DAYS_PER_MONTH, ROAD_UPKEEP, FOREST_CLEAR, RESIDENTS, JOBS_C, JOBS_I,
-  TOOL, KINDS, KIND_NAME, MONTHS,
+  N, START_MONEY, DAYS_PER_MONTH, ROAD_UPKEEP, FOREST_CLEAR, BRIDGE_COST, BRIDGE_UPKEEP, RESIDENTS, RESIDENTS_H, JOBS_C, JOBS_I,
+  TOOL, KINDS, KIND_NAME, MONTHS, CROPS, CROP_STAGES, HARVEST_PRICE,
 } from './config.js';
 
 export const GRASS = 0, WATER = 1, FOREST = 2;
-export const ZONES = new Set(['R', 'C', 'I']);
+export const ZONES = new Set(['R', 'H', 'C', 'I']);
+// blocurile folosesc aceeași cerere ca locuințele
+const demandKey = k => k === 'H' ? 'R' : k;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
 function rng32(seed) {
@@ -43,6 +45,7 @@ export class City {
     this.day = 0;
     this.tax = 9;
     this.lastMonth = null;
+    this.harvest = 0; // banii din legumele culese luna aceasta
     this.version = 0;
     this.events = [];
     this.demand = { R: 1, C: .25, I: .75 };
@@ -53,7 +56,7 @@ export class City {
     this.nearWater = new Uint8Array(n);
     this.value = new Float32Array(n);
     this.pollution = new Float32Array(n);
-    this.cover = { police: new Float32Array(n), fire: new Float32Array(n), school: new Float32Array(n), park: new Float32Array(n) };
+    this.cover = { police: new Float32Array(n), fire: new Float32Array(n), school: new Float32Array(n), park: new Float32Array(n), garden: new Float32Array(n), station: new Float32Array(n) };
   }
 
   static create(seed = (Math.random() * 1e9) | 0) {
@@ -105,19 +108,20 @@ export class City {
     for (let z = 0; z < N; z++) for (let x = 0; x < N; x++) {
       const i = this.idx(x, z), k = kind[i];
       if (!k) continue;
-      if (k === 'road') {
+      if (k === 'road' || k === 'crossing') {
         for (let dz = -2; dz <= 2; dz++) for (let dx = -2; dx <= 2; dx++) {
           if (Math.abs(dx) + Math.abs(dz) <= 2 && this.inside(x + dx, z + dz)) road[this.idx(x + dx, z + dz)] = 1;
         }
       } else if (k === 'power') {
         radiate(x, z, TOOL.power.radius, j => { powered[j] = 1; });
         radiate(x, z, 6, (j, f) => { pollution[j] = Math.min(1, pollution[j] + .5 * f); });
-      } else if (k === 'water') radiate(x, z, TOOL.water.radius, j => { watered[j] = 1; });
+      } else if (k === 'wind' || k === 'solar') radiate(x, z, TOOL[k].radius, j => { powered[j] = 1; });
+      else if (k === 'water') radiate(x, z, TOOL.water.radius, j => { watered[j] = 1; });
       else if (cover[k]) radiate(x, z, TOOL[k].radius, (j, f) => { cover[k][j] = Math.max(cover[k][j], f); });
       else if (k === 'I' && level[i]) radiate(x, z, 5, (j, f) => { pollution[j] = Math.min(1, pollution[j] + .12 * level[i] * f); });
     }
     for (let i = 0; i < N * N; i++) {
-      value[i] = clamp(.42 + .22 * cover.park[i] + .12 * cover.police[i] + .1 * cover.school[i] + .06 * cover.fire[i]
+      value[i] = clamp(.42 + .22 * cover.park[i] + .14 * cover.garden[i] + .1 * cover.station[i] + .12 * cover.police[i] + .1 * cover.school[i] + .06 * cover.fire[i]
         + .08 * this.nearWater[i] - .55 * pollution[i], 0, 1);
     }
   }
@@ -126,7 +130,7 @@ export class City {
     let pop = 0, jobsC = 0, jobsI = 0, vSum = 0;
     for (let i = 0; i < N * N; i++) {
       const k = this.kind[i], l = this.level[i];
-      if (k === 'R') { pop += RESIDENTS[l]; vSum += this.value[i] * RESIDENTS[l]; }
+      if (k === 'R' || k === 'H') { const n = (k === 'H' ? RESIDENTS_H : RESIDENTS)[l]; pop += n; vSum += this.value[i] * n; }
       else if (k === 'C') jobsC += JOBS_C[l];
       else if (k === 'I') jobsI += JOBS_I[l];
     }
@@ -147,12 +151,25 @@ export class City {
     let changed = false;
     for (let i = 0; i < N * N; i++) {
       const k = this.kind[i];
+      if (k === 'farm') {
+        // legumele cresc, apoi se culeg și se plantează din nou
+        if (this.level[i] < 3) {
+          if (Math.random() < .07 + (this.nearWater[i] || this.watered[i] ? .05 : 0)) { this.level[i]++; changed = true; }
+        } else if (Math.random() < .08) {
+          this.level[i] = 1;
+          this.harvest += HARVEST_PRICE;
+          changed = true;
+        }
+        continue;
+      }
       if (!ZONES.has(k)) continue;
       const lvl = this.level[i], ok = this.road[i] && this.powered[i];
       // fabricile nu sunt deranjate de propria poluare
       const v = k === 'I' ? this.value[i] + .55 * this.pollution[i] : this.value[i];
-      const max = !ok ? 0 : !this.watered[i] ? 1 : v > .7 ? 3 : v > .5 ? 2 : 1;
-      const dm = this.demand[k];
+      // blocurile nu cresc deloc fără apă, dar ajung la etaje multe și pe teren mai ieftin
+      const max = !ok ? 0 : k === 'H' ? (!this.watered[i] ? 0 : v > .62 ? 3 : v > .45 ? 2 : 1)
+        : !this.watered[i] ? 1 : v > .7 ? 3 : v > .5 ? 2 : 1;
+      const dm = this.demand[demandKey(k)];
       if (lvl < max && dm > 0) {
         if (Math.random() < .015 + .05 * dm) { this.level[i]++; changed = true; }
       } else if (lvl > max) {
@@ -171,15 +188,21 @@ export class City {
 
   endMonth() {
     const s = this.stats, jobs = s.jobsC + s.jobsI;
-    const income = Math.round((s.pop * 10 + jobs * 6) * this.tax / 100);
-    let roads = 0, services = 0;
-    for (const k of this.kind) {
-      if (k === 'road') roads++;
-      else if (k && TOOL[k].upkeep) services += TOOL[k].upkeep;
-    }
-    const roadCost = roads * ROAD_UPKEEP, expenses = roadCost + services;
-    this.money += income - expenses;
-    this.lastMonth = { income, roads: roadCost, services, expenses, net: income - expenses };
+    const income = Math.round((s.pop * 10 + jobs * 6) * this.tax / 100), farm = this.harvest;
+    this.harvest = 0;
+    let roadCost = 0, services = 0, energy = 0, ranch = 0;
+    this.kind.forEach((k, i) => {
+      const water = this.terrain[i] === WATER;
+      if (k === 'road' || k === 'crossing') roadCost += water ? BRIDGE_UPKEEP : ROAD_UPKEEP;
+      if (k === 'rail' || k === 'crossing') roadCost += water ? BRIDGE_UPKEEP : TOOL.rail.upkeep;
+      else if (k && k !== 'road' && TOOL[k].upkeep) services += TOOL[k].upkeep;
+      // energia de la eoliene și panouri, produsele de la fermă
+      if (TOOL[k]?.sells) { if (k === 'ranch') ranch += TOOL[k].sells; else energy += TOOL[k].sells; }
+    });
+    const expenses = roadCost + services;
+    const earned = income + farm + energy + ranch;
+    this.money += earned - expenses;
+    this.lastMonth = { income, farm, energy, ranch, roads: roadCost, services, expenses, net: earned - expenses };
     this.monthEnded = true;
   }
 
@@ -187,13 +210,25 @@ export class City {
   check(tool, i) {
     const k = this.kind[i], emptyZone = ZONES.has(k) && this.level[i] === 0, free = !k || emptyZone;
     if (tool === 'bulldoze') return k || this.terrain[i] === FOREST ? null : 'Nu e nimic de demolat aici.';
-    if (this.terrain[i] === WATER) return 'Nu poți construi pe apă.';
-    if (tool === 'road') return k === 'road' ? 'Aici e deja drum.' : free ? null : 'Locul e ocupat. Demolează mai întâi.';
+    const linear = tool === 'road' || tool === 'rail';
+    if (this.terrain[i] === WATER) {
+      if (!linear) return 'Pe apă poți construi doar poduri: folosește unealta Drum sau Cale ferată.';
+      if (k === tool) return 'Aici e deja un pod.';
+      return k ? 'Pe un pod nu se pot încrucișa drumul și calea ferată.' : null;
+    }
+    if (linear) {
+      if (k === tool || k === 'crossing') return tool === 'road' ? 'Aici e deja drum.' : 'Aici e deja cale ferată.';
+      if (k === 'road' || k === 'rail') return null; // drum peste șine (sau invers): trecere la nivel
+      return free ? null : 'Locul e ocupat. Demolează mai întâi.';
+    }
     if (TOOL[tool].zone && k === tool) return 'Zona e deja aici.';
     return free ? null : 'Locul e ocupat. Demolează mai întâi.';
   }
 
-  cost(tool, i) { return TOOL[tool].cost + (tool !== 'bulldoze' && this.terrain[i] === FOREST ? FOREST_CLEAR : 0); }
+  cost(tool, i) {
+    if ((tool === 'road' || tool === 'rail') && this.terrain[i] === WATER) return BRIDGE_COST;
+    return TOOL[tool].cost + (tool !== 'bulldoze' && this.terrain[i] === FOREST ? FOREST_CLEAR : 0);
+  }
 
   apply(tool, tiles) {
     let cost = 0, reason = null;
@@ -209,7 +244,9 @@ export class City {
     this.money -= cost;
     for (const i of ok) {
       if (this.terrain[i] === FOREST) this.terrain[i] = GRASS;
-      this.kind[i] = tool === 'bulldoze' ? null : tool;
+      const k = this.kind[i];
+      this.kind[i] = tool === 'bulldoze' ? null
+        : (tool === 'road' && k === 'rail') || (tool === 'rail' && k === 'road') ? 'crossing' : tool;
       this.level[i] = 0;
     }
     this.version++;
@@ -227,25 +264,29 @@ export class City {
     const i = this.idx(x, z), k = this.kind[i], l = this.level[i];
     const info = {
       x, z,
-      title: k ? KIND_NAME[k] : ['Iarbă', 'Apă', 'Pădure'][this.terrain[i]],
+      title: k === 'road' && this.terrain[i] === WATER ? 'Pod' : k === 'rail' && this.terrain[i] === WATER ? 'Pod de cale ferată' : k ? KIND_NAME[k] : ['Iarbă', 'Apă', 'Pădure'][this.terrain[i]],
       value: Math.round(this.value[i] * 100), pollution: Math.round(this.pollution[i] * 100),
       powered: !!this.powered[i], watered: !!this.watered[i], road: !!this.road[i],
     };
+    if (k === 'farm') {
+      info.crop = CROPS[this.variant[i] % CROPS.length];
+      info.stage = CROP_STAGES[l];
+    }
     if (ZONES.has(k)) {
       info.level = l;
-      if (k === 'R') info.residents = RESIDENTS[l];
+      if (k === 'R' || k === 'H') info.residents = (k === 'H' ? RESIDENTS_H : RESIDENTS)[l];
       else info.jobs = (k === 'C' ? JOBS_C : JOBS_I)[l];
       if (!info.road) info.problem = 'Nu are drum în apropiere.';
       else if (!info.powered) info.problem = 'Nu are curent electric.';
-      else if (!info.watered) info.problem = 'Nu are apă, așa că rămâne mică.';
-      else if (this.demand[k] <= 0) info.problem = 'Nu e cerere pentru acest tip de zonă acum.';
+      else if (!info.watered) info.problem = k === 'H' ? 'Blocurile au nevoie de apă ca să fie construite.' : 'Nu are apă, așa că rămâne mică.';
+      else if (this.demand[demandKey(k)] <= 0) info.problem = 'Nu e cerere pentru acest tip de zonă acum.';
     }
     return info;
   }
 
   toJSON() {
     return {
-      v: 1, seed: this.seed, money: this.money, day: this.day, tax: this.tax, lastMonth: this.lastMonth,
+      v: 1, seed: this.seed, money: this.money, day: this.day, tax: this.tax, lastMonth: this.lastMonth, harvest: this.harvest,
       terrain: Array.from(this.terrain), kind: this.kind.map(k => KINDS.indexOf(k)),
       level: Array.from(this.level), variant: Array.from(this.variant),
     };
@@ -254,7 +295,7 @@ export class City {
   static fromJSON(o) {
     if (o?.v !== 1 || o.terrain?.length !== N * N) return null;
     const c = new City();
-    Object.assign(c, { seed: o.seed, money: o.money, day: o.day, tax: o.tax, lastMonth: o.lastMonth });
+    Object.assign(c, { seed: o.seed, money: o.money, day: o.day, tax: o.tax, lastMonth: o.lastMonth, harvest: o.harvest || 0 });
     c.terrain.set(o.terrain);
     c.kind = o.kind.map(k => KINDS[k] ?? null);
     c.level.set(o.level);

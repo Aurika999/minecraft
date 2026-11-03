@@ -6,22 +6,33 @@ export const DAYS_PER_MONTH = 30;
 export const DAY_SECONDS = [Infinity, .6, .3, .12];
 export const ROAD_UPKEEP = 1; // $ pe lună pentru fiecare pătrățel de drum
 export const FOREST_CLEAR = 5; // cost în plus când construiești peste pădure
+export const BRIDGE_COST = 60; // un pătrățel de pod (drum peste apă)
+export const BRIDGE_UPKEEP = 3; // $ pe lună pentru fiecare pătrățel de pod
 
 // locuitori / locuri de muncă pentru fiecare nivel de clădire (0 = zonă goală)
 export const RESIDENTS = [0, 8, 30, 90];
+export const RESIDENTS_H = [0, 45, 120, 240]; // blocuri cu etaje
 export const JOBS_C = [0, 6, 20, 60];
 export const JOBS_I = [0, 10, 30, 70];
 
 // mode: 'line' = tragi un drum, 'rect' = tragi o suprafață, 'tap' = un singur pătrățel
 export const TOOLS = [
   { id: 'inspect', name: 'Info', icon: '🔍', cost: 0, mode: 'tap', help: 'Atinge un pătrățel ca să vezi detalii. Trage ca să muți harta.' },
-  { id: 'road', name: 'Drum', icon: '🛣️', cost: 10, mode: 'line', help: 'Trage ca să construiești drum. Zonele cresc doar lângă drumuri.' },
+  { id: 'road', name: 'Drum', icon: '🛣️', cost: 10, mode: 'line', help: 'Trage ca să construiești drum. Peste apă devine pod (60 $). Zonele cresc doar lângă drumuri.' },
+  { id: 'rail', name: 'Cale ferată', icon: '🛤️', cost: 25, upkeep: 2, mode: 'line', help: 'Trage ca să pui șine. Peste un drum faci o trecere la nivel, peste apă un pod. Pe șine vin trenuri.' },
   { id: 'R', name: 'Locuințe', icon: '🏠', cost: 20, mode: 'rect', zone: true, help: 'Zonă rezidențială: aici se mută oamenii.' },
+  { id: 'H', name: 'Blocuri', icon: '🏢', cost: 40, mode: 'rect', zone: true, help: 'Zonă pentru blocuri cu etaje: încap foarte mulți oameni. Au nevoie de drum, curent și apă; cresc mai înalte unde terenul e valoros.' },
   { id: 'C', name: 'Comerț', icon: '🏬', cost: 25, mode: 'rect', zone: true, help: 'Zonă comercială: magazine și birouri, dau locuri de muncă.' },
   { id: 'I', name: 'Industrie', icon: '🏭', cost: 25, mode: 'rect', zone: true, help: 'Zonă industrială: multe locuri de muncă, dar poluează.' },
   { id: 'power', name: 'Centrală', icon: '⚡', cost: 3000, upkeep: 80, radius: 12, mode: 'tap', help: 'Dă curent clădirilor din jur. Poluează puțin.' },
+  { id: 'wind', name: 'Eoliană', icon: '🌬️', cost: 600, upkeep: 5, radius: 6, sells: 45, mode: 'rect', help: 'Curent curat în jur, fără poluare. Vinde energie: +45 $ pe lună fiecare. Trage ca să faci un parc eolian.' },
+  { id: 'solar', name: 'Panouri solare', icon: '☀️', cost: 900, upkeep: 5, radius: 7, sells: 70, mode: 'rect', help: 'Curent de la soare, fără poluare. Vinde energie: +70 $ pe lună fiecare pătrățel.' },
   { id: 'water', name: 'Turn de apă', icon: '💧', cost: 1200, upkeep: 30, radius: 10, mode: 'tap', help: 'Fără apă, clădirile rămân mici.' },
   { id: 'park', name: 'Parc', icon: '🌳', cost: 150, upkeep: 2, radius: 4, mode: 'rect', help: 'Crește valoarea terenului din jur.' },
+  { id: 'garden', name: 'Curte cu flori', icon: '🌷', cost: 40, upkeep: 1, radius: 3, mode: 'rect', help: 'Straturi de flori, gard viu și alei. Oamenii se plimbă aici, iar terenul din jur se scumpește.' },
+  { id: 'farm', name: 'Legume', icon: '🥕', cost: 30, mode: 'rect', help: 'Plantează legume. Cresc singure, iar când sunt coapte se culeg și se vând. Lângă apă cresc mai repede.' },
+  { id: 'ranch', name: 'Fermă', icon: '🐄', cost: 600, sells: 80, mode: 'tap', help: 'Fermă cu hambar, siloz, vaci și găini. Vinde lapte și ouă: +80 $ pe lună.' },
+  { id: 'station', name: 'Gară', icon: '🚉', cost: 1500, upkeep: 30, radius: 10, mode: 'tap', help: 'Pune-o lângă șine: vin mai multe trenuri, iar terenul din jur se scumpește.' },
   { id: 'police', name: 'Poliție', icon: '👮', cost: 800, upkeep: 40, radius: 9, mode: 'tap', help: 'Siguranță: oamenii sunt mai mulțumiți.' },
   { id: 'fire', name: 'Pompieri', icon: '🚒', cost: 800, upkeep: 40, radius: 9, mode: 'tap', help: 'Fără pompieri pot izbucni incendii.' },
   { id: 'school', name: 'Școală', icon: '🏫', cost: 1000, upkeep: 50, radius: 9, mode: 'tap', help: 'Educația crește valoarea terenului.' },
@@ -29,9 +40,16 @@ export const TOOLS = [
 ];
 export const TOOL = Object.fromEntries(TOOLS.map(t => [t.id, t]));
 
-export const KINDS = [null, 'road', 'R', 'C', 'I', 'power', 'water', 'park', 'police', 'fire', 'school'];
+export const KINDS = [null, 'road', 'R', 'C', 'I', 'power', 'water', 'park', 'police', 'fire', 'school', 'garden', 'farm', 'rail', 'crossing', 'station', 'H', 'wind', 'solar', 'ranch'];
 export const KIND_NAME = {
   road: 'Drum', R: 'Zonă rezidențială', C: 'Zonă comercială', I: 'Zonă industrială', power: 'Centrală electrică',
   water: 'Turn de apă', park: 'Parc', police: 'Secție de poliție', fire: 'Stație de pompieri', school: 'Școală',
+  garden: 'Curte cu flori', farm: 'Grădină de legume',
+  wind: 'Eoliană', solar: 'Parc de panouri solare', ranch: 'Fermă de animale',
+  H: 'Zonă de blocuri', rail: 'Cale ferată', crossing: 'Trecere la nivel cu calea ferată', station: 'Gară',
 };
+// legumele: tipul depinde de pătrățel; prețul e pentru un pătrățel cules
+export const CROPS = ['Varză', 'Morcovi', 'Roșii', 'Dovleci', 'Porumb', 'Vinete'];
+export const CROP_STAGES = ['Semințe puse', 'Răsaduri', 'Cresc', 'Gata de cules'];
+export const HARVEST_PRICE = 12;
 export const MONTHS = ['Ianuarie', 'Februarie', 'Martie', 'Aprilie', 'Mai', 'Iunie', 'Iulie', 'August', 'Septembrie', 'Octombrie', 'Noiembrie', 'Decembrie'];

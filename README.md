@@ -63,4 +63,4 @@ npm run dev
 
 Apoi deschide http://localhost:5174/.
 
-Construiești drumuri, zone de locuințe, comerț și industrie, centrale, turnuri de apă, parcuri și servicii (poliție, pompieri, școli). Clădirile cresc singure când au drum, curent și apă. Ai buget lunar cu taxe și întreținere, poluare, incendii și mașini pe drumuri. Orașul se salvează automat în browser. Se joacă și pe telefon: un deget construiește, două degete mută harta și fac zoom.
+Construiești drumuri, poduri peste apă, zone de locuințe, comerț și industrie, centrale, turnuri de apă, parcuri, curți cu flori, grădini de legume și servicii (poliție, pompieri, școli). Clădirile cresc singure când au drum, curent și apă. Ai buget lunar cu taxe și întreținere, poluare, incendii, mașini pe drumuri și oameni pe trotuare. Orașul se salvează automat în browser. Se joacă și pe telefon: un deget construiește, două degete mută harta și fac zoom.

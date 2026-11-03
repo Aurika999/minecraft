@@ -218,7 +218,7 @@ export class Engine {
     let zones = 0, noRoad = 0, noPower = 0, noWater = 0, power = 0, water = 0;
     for (let i = 0; i < N * N; i++) {
       const k = c.kind[i];
-      if (k === 'power') power++;
+      if (k === 'power' || k === 'wind' || k === 'solar') power++;
       if (k === 'water') water++;
       if (!ZONES.has(k)) continue;
       zones++;
@@ -254,7 +254,7 @@ export class Engine {
       this.builtVersion = c.version;
       this.lastRebuild = t;
     }
-    this.view.updateCars(dt * Math.min(this.speed, 2), Math.floor(c.stats.pop / 10));
+    this.view.updateTraffic(dt * Math.min(this.speed, 2), Math.floor(c.stats.pop / 10), Math.floor(c.stats.pop / 8));
     this.view.render(dt);
     if (t - this.lastEmit > 250) this.emit();
   };
@@ -268,7 +268,7 @@ export class Engine {
       demand: { ...c.demand }, tax: c.tax, lastMonth: c.lastMonth, speed: this.speed, tool: this.tool,
       previewCost: this.previewCost || 0, welcome: this.welcome, messages: [...this.messages],
       info: this.selected ? c.tileInfo(this.selected.x, this.selected.z) : null,
-      buildings: c.kind.reduce((n, k, i) => n + (k && k !== 'road' && (!ZONES.has(k) || c.level[i]) ? 1 : 0), 0),
+      buildings: c.kind.reduce((n, k, i) => n + (k && !['road', 'rail', 'crossing'].includes(k) && (!ZONES.has(k) || c.level[i]) ? 1 : 0), 0),
     });
   }
 }

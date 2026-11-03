@@ -92,11 +92,12 @@ function Info({ info, onClose }) {
       </div>
       <p className="muted">Pătrățelul ({info.x}, {info.z})</p>
       {info.level != null && <p>Nivel <b>{info.level}</b> din 3 · {info.residents != null ? `${info.residents} locuitori` : `${info.jobs} locuri de muncă`}</p>}
-      <ul className="checks">
+      {info.crop && <p>🌱 <b>{info.crop}</b> · {info.stage}</p>}
+      {!info.crop && <ul className="checks">
         {yes(info.road, 'Drum aproape')}
         {yes(info.powered, 'Curent electric')}
         {yes(info.watered, 'Apă')}
-      </ul>
+      </ul>}
       <Meter label="Valoarea terenului" v={info.value} good />
       <Meter label="Poluare" v={info.pollution} />
       {info.problem && <p className="problem">⚠ {info.problem}</p>}
@@ -169,6 +170,9 @@ function Budget({ ui, g, onClose }) {
         <table className="budget">
           <tbody>
             <tr><td>Taxe încasate</td><td className="pos">+{fmt(m.income)} $</td></tr>
+            {m.energy > 0 && <tr><td>Energie vândută</td><td className="pos">+{fmt(m.energy)} $</td></tr>}
+            {m.ranch > 0 && <tr><td>Lapte și ouă de la fermă</td><td className="pos">+{fmt(m.ranch)} $</td></tr>}
+            {m.farm > 0 && <tr><td>Legume vândute</td><td className="pos">+{fmt(m.farm)} $</td></tr>}
             <tr><td>Întreținere drumuri</td><td className="neg">−{fmt(m.roads)} $</td></tr>
             <tr><td>Servicii (curent, apă, poliție…)</td><td className="neg">−{fmt(m.services)} $</td></tr>
             <tr className="total"><td>Luna trecută</td><td className={m.net >= 0 ? 'pos' : 'neg'}>{m.net >= 0 ? '+' : '−'}{fmt(Math.abs(m.net))} $</td></tr>
@@ -213,6 +217,7 @@ function Welcome({ onStart }) {
         <li>🏠 🏬 🏭 Pune <b>zone</b> de-a lungul drumului: locuințe, comerț, industrie.</li>
         <li>⚡ Construiește o <b>centrală</b>, ca zonele să aibă curent.</li>
         <li>💧 Pune un <b>turn de apă</b>, ca să crească clădirile.</li>
+        <li>🌷 🥕 Fă curți cu flori și plantează legume: legumele coapte se vând.</li>
         <li>🌳 👮 🚒 🏫 Parcurile și serviciile fac oamenii mulțumiți și clădirile mai înalte.</li>
       </ol>
       <p className="muted">Barele R C I din stânga arată ce tip de zonă își doresc oamenii acum.</p>
