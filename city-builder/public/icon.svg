@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs><linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7cc8f5"/><stop offset="1" stop-color="#bfe6fb"/></linearGradient></defs>
+  <rect width="512" height="512" fill="url(#sky)"/>
+  <circle cx="370" cy="150" r="46" fill="#ffd54f"/>
+  <path d="M0 360 Q256 300 512 360 V512 H0Z" fill="#8fd14f"/>
+  <!-- bloc -->
+  <rect x="214" y="150" width="96" height="220" rx="6" fill="#ffcf73"/>
+  <g fill="#3d6fae">
+    <rect x="230" y="170" width="20" height="22"/><rect x="274" y="170" width="20" height="22"/>
+    <rect x="230" y="208" width="20" height="22"/><rect x="274" y="208" width="20" height="22"/>
+    <rect x="230" y="246" width="20" height="22"/><rect x="274" y="246" width="20" height="22"/>
+    <rect x="230" y="284" width="20" height="22"/><rect x="274" y="284" width="20" height="22"/>
+  </g>
+  <rect x="248" y="326" width="28" height="44" fill="#7a4b2e"/>
+  <!-- casă stânga -->
+  <rect x="104" y="270" width="96" height="100" fill="#ff9fb0"/>
+  <path d="M92 276 L152 214 L212 276Z" fill="#e0453a"/>
+  <rect x="140" y="320" width="24" height="50" fill="#7a4b2e"/>
+  <rect x="116" y="292" width="18" height="18" fill="#3d6fae"/><rect x="170" y="292" width="18" height="18" fill="#3d6fae"/>
+  <!-- casă dreapta -->
+  <rect x="324" y="286" width="86" height="84" fill="#8fcaf5"/>
+  <path d="M312 292 L367 238 L422 292Z" fill="#7e57c2"/>
+  <rect x="356" y="326" width="22" height="44" fill="#7a4b2e"/>
+  <!-- copaci și drum -->
+  <circle cx="80" cy="350" r="26" fill="#4cb050"/><circle cx="440" cy="352" r="24" fill="#4cb050"/>
+  <path d="M0 400 H512 V446 H0Z" fill="#70757d"/>
+  <g fill="#fff"><rect x="40" y="420" width="44" height="7"/><rect x="134" y="420" width="44" height="7"/><rect x="228" y="420" width="44" height="7"/><rect x="322" y="420" width="44" height="7"/><rect x="416" y="420" width="44" height="7"/></g>
+</svg>

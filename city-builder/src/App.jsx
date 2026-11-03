@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { Engine } from './game/engine.js';
 import { TOOLS, TOOL, ANIMALS } from './game/config.js';
+import { useInstall, isIOS, isSecure } from './install.js';
 
 const fmt = n => Math.round(n).toLocaleString('ro-RO');
 
 export default function App() {
   const mountRef = useRef(null), engineRef = useRef(null);
   const [ui, setUi] = useState(null);
-  const [panel, setPanel] = useState(null); // 'budget' | 'menu' | null
+  const [panel, setPanel] = useState(null); // 'budget' | 'menu' | 'install' | null
 
   useEffect(() => {
     const e = new Engine(mountRef.current, setUi);
@@ -28,8 +29,9 @@ export default function App() {
           <MapButtons g={g} />
           <Toolbar ui={ui} g={g} />
           {panel === 'budget' && <Budget ui={ui} g={g} onClose={() => setPanel(null)} />}
-          {panel === 'menu' && <Menu g={g} onClose={() => setPanel(null)} />}
-          {ui.welcome && <Welcome onStart={() => g.closeWelcome()} />}
+          {panel === 'menu' && <Menu g={g} onClose={() => setPanel(null)} onInstall={() => setPanel('install')} />}
+          {panel === 'install' && <InstallHelp onClose={() => setPanel(null)} />}
+          {ui.welcome && <Welcome onStart={() => g.closeWelcome()} onInstall={() => setPanel('install')} />}
         </>
       )}
     </>
@@ -55,6 +57,7 @@ function TopBar({ ui, g, setPanel }) {
             <button key={s} className={ui.speed === s ? 'on' : ''} onClick={() => g.setSpeed(s)} title={label} aria-label={label}>{icon}</button>
           ))}
         </div>
+        <InstallButton small onHelp={() => setPanel('install')} />
         <button className="icon" onClick={() => setPanel('budget')} title="Buget" aria-label="Buget">📊</button>
         <button className="icon" onClick={() => setPanel('menu')} title="Meniu" aria-label="Meniu">☰</button>
       </div>
@@ -202,6 +205,7 @@ function Budget({ ui, g, onClose }) {
           <tbody>
             <tr><td>Taxe încasate</td><td className="pos">+{fmt(m.income)} $</td></tr>
             {m.energy > 0 && <tr><td>Energie vândută</td><td className="pos">+{fmt(m.energy)} $</td></tr>}
+            {m.tickets > 0 && <tr><td>Bilete la parcul de distracții</td><td className="pos">+{fmt(m.tickets)} $</td></tr>}
             {m.ranch > 0 && <tr><td>Produse de la ferme</td><td className="pos">+{fmt(m.ranch)} $</td></tr>}
             {m.farm > 0 && <tr><td>Legume vândute</td><td className="pos">+{fmt(m.farm)} $</td></tr>}
             <tr><td>Întreținere drumuri</td><td className="neg">−{fmt(m.roads)} $</td></tr>
@@ -219,12 +223,56 @@ function Budget({ ui, g, onClose }) {
   );
 }
 
-function Menu({ g, onClose }) {
+// butonul „Instalează”: deschide fereastra browserului sau, dacă nu se poate, pașii de instalare
+function InstallButton({ small, onHelp }) {
+  const inst = useInstall();
+  if (inst.installed) return null;
+  const click = async () => { if (!inst.canPrompt || !(await inst.prompt())) onHelp?.(); };
+  if (small) return <button className="icon" onClick={click} title="Instalează pe telefon" aria-label="Instalează pe telefon">📲</button>;
+  return <button className="install-btn" onClick={click}><span>📲</span> Instalează</button>;
+}
+
+function InstallHelp({ onClose }) {
+  const inst = useInstall();
+  return (
+    <Modal title="📲 Instalează jocul" onClose={onClose}>
+      {inst.installed ? <p>Jocul e deja instalat. Îl găsești pe ecranul telefonului, cu iconița <b>Orașul Meu</b>.</p> : (
+        <>
+          <p>După instalare, jocul apare pe ecranul telefonului ca o aplicație și pornește și fără internet.</p>
+          {inst.canPrompt && <button className="install-btn wide" onClick={async () => { if (await inst.prompt()) onClose(); }}><span>📲</span> Instalează acum</button>}
+          {isIOS() ? (
+            <>
+              <h3>Pe iPhone / iPad (Safari)</h3>
+              <ol className="steps">
+                <li>Apasă butonul <b>Partajează</b> ⬆️ din bara de jos.</li>
+                <li>Alege <b>Adaugă pe ecranul principal</b>.</li>
+                <li>Apasă <b>Adaugă</b>.</li>
+              </ol>
+            </>
+          ) : (
+            <>
+              <h3>Pe Android (Chrome)</h3>
+              <ol className="steps">
+                <li>Apasă meniul <b>⋮</b> din colțul de sus.</li>
+                <li>Alege <b>Instalează aplicația</b> sau <b>Adaugă pe ecranul de pornire</b>.</li>
+                <li>Confirmă cu <b>Instalează</b>.</li>
+              </ol>
+            </>
+          )}
+          {!isSecure() && <p className="problem">⚠ Instalarea merge doar când jocul e deschis de pe o adresă care începe cu <b>https://</b>. Adresa de acum ({location.host}) nu e sigură, așa că telefonul nu va oferi instalarea.</p>}
+        </>
+      )}
+    </Modal>
+  );
+}
+
+function Menu({ g, onClose, onInstall }) {
   return (
     <Modal title="Meniu" onClose={onClose}>
       <p className="muted">Orașul se salvează automat în browser.</p>
       <div className="menu-actions">
         <button className="primary" onClick={onClose}>Continuă</button>
+        <InstallButton onHelp={onInstall} />
         <button className="danger" onClick={() => {
           if (confirm('Sigur începi un oraș nou? Orașul de acum se pierde.')) { g.newCity(); onClose(); }
         }}>Oraș nou</button>
@@ -239,7 +287,7 @@ function Menu({ g, onClose }) {
   );
 }
 
-function Welcome({ onStart }) {
+function Welcome({ onStart, onInstall }) {
   return (
     <Modal title="Bine ai venit, primarule!">
       <p>Construiește-ți orașul de la zero. Pașii de început:</p>
@@ -253,6 +301,7 @@ function Welcome({ onStart }) {
       </ol>
       <p className="muted">Barele R C I din stânga arată ce tip de zonă își doresc oamenii acum.</p>
       <button className="primary wide" onClick={onStart}>Să începem!</button>
+      <div className="center"><InstallButton onHelp={onInstall} /></div>
     </Modal>
   );
 }

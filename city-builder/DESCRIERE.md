@@ -18,6 +18,12 @@ Apoi deschizi http://localhost:5174/ în browser. Pe telefon, conectat la aceea�
 
 Pentru o versiune finală, rulezi `npm run build`. Rezultatul apare în folderul `dist/`.
 
+### Instalare pe telefon
+
+Jocul se poate instala ca aplicație (PWA). Apeși butonul **📲 Instalează**: îl găsești în bara de sus, în meniul ☰ și pe ecranul de bun venit. Jocul apare apoi pe ecranul telefonului, cu iconița lui, și pornește și fără internet. Pe iPhone, butonul arată pașii: Partajează ⬆️ → *Adaugă pe ecranul principal*.
+
+Instalarea merge doar când jocul e deschis de pe o adresă **https://** (sau `localhost` pe calculator).
+
 ---
 
 ## Scopul jocului
@@ -42,6 +48,7 @@ Nu există un final fix. Încerci să ai un oraș **cât mai mare**, cu **oameni
 | 🛣️ Drum | 10 $ | 1 $ / pătrățel | — | Zonele cresc doar lângă drumuri, la cel mult 2 pătrățele |
 | 🛤️ Cale ferată | 25 $ | 2 $ / pătrățel | — | Șine pe care circulă trenuri. Peste drum face trecere la nivel, peste apă pod |
 | 🐄 Fermă | 600 $ | — | — | Animale sau păsări la alegere. Aduce între **+45 și +110 $ / lună** |
+| 🎡 Parc de distracții | 1.200 $ | 20 $ | 6 | Roată mare, carusel, montagne russe, chioșcuri. Vinde bilete: **+60 $ / lună** |
 | 🚉 Gară | 1.500 $ | 30 $ | 10 | Aduce mai multe trenuri și crește valoarea terenului |
 | 🌉 Pod (drum peste apă) | 60 $ | 3 $ / pătrățel | — | Leagă malurile. Se face tot cu unealta Drum |
 | 🏠 Locuințe (R) | 20 $ | — | — | Aici se mută oamenii |
@@ -157,6 +164,16 @@ Butonul 📊 deschide raportul lunii trecute și cursorul pentru **taxe**, într
   Animalele sunt în 3D și **se plimbă prin țarc**: merg, se opresc, se întorc, iar păsările ciugulesc. Animalele stau în hambar roșu, păsările în coteț. Rațele au un lac, porcii au o baltă cu noroi.
 - Toate se amortizează în câteva luni. În 📊 Buget apar la „Energie vândută” și „Lapte și ouă de la fermă”.
 
+### Parcul de distracții
+
+Tragi 🎡 **Parc de distracții** peste mai multe pătrățele. Fiecare pătrățel primește altă atracție:
+- **roata mare**, care se învârte, cu cabine colorate care atârnă mereu drept;
+- **caruselul**, cu acoperiș în dungi roșii și albe și căluți, care se rotește;
+- **montagne russe**, cu șină roșie pe stâlpi și vagonete care urcă și coboară;
+- **chioșcul** cu vată de zahăr și baloane colorate.
+
+Fiecare pătrățel vinde bilete (**+60 $ pe lună**, la „Bilete la parcul de distracții” în buget) și crește valoarea terenului din jur.
+
 ### Calea ferată și trenurile
 
 Cu 🛤️ **Cale ferată** tragi șine, la fel ca drumurile. Când treci cu șinele peste un drum (sau cu drumul peste șine), se face automat o **trecere la nivel**, cu indicatoare. Mașinile o traversează, iar trenurile trec prin ea. Peste apă se face un **pod de cale ferată** (60 $).
@@ -165,7 +182,7 @@ Când ai cel puțin 3 pătrățele de șine, apare un **tren cu locomotivă cu a
 
 ### Legumele
 
-Pe fiecare pătrățel cu 🥕 Legume crește un singur fel de legumă: varză, morcovi, roșii, dovleci, porumb sau vinete. Plantele sunt mari și se văd în 3D: căpățâni de varză cu frunze, roșii pe araci, porumb înalt cu știuleți, dovleci portocalii, vinete mov. Plantele trec prin patru etape: **semințe puse → răsaduri → cresc → gata de cules**. Lângă apă sau în raza unui turn de apă cresc mai repede. Legumele coapte se culeg singure și se plantează din nou. Fiecare pătrățel cules aduce **12 $**, iar la sfârșitul lunii suma apare în buget la „Legume vândute”. Cu 🔍 Info vezi ce legumă e pe un pătrățel și în ce etapă se află.
+Pe fiecare pătrățel cu 🥕 Legume crește un singur fel de legumă: varză, morcovi, roșii, dovleci, porumb, vinete sau grâu. Parcela are o ramă de lemn și 16 movilițe de pământ, fiecare cu o plantă. Grâul crește des și se face auriu. Plantele sunt mari și se văd în 3D: căpățâni de varză cu frunze, roșii pe araci, porumb înalt cu știuleți, dovleci portocalii, vinete mov. Plantele trec prin patru etape: **semințe puse → răsaduri → cresc → gata de cules**. Lângă apă sau în raza unui turn de apă cresc mai repede. Legumele coapte se culeg singure și se plantează din nou. Fiecare pătrățel cules aduce **12 $**, iar la sfârșitul lunii suma apare în buget la „Legume vândute”. Cu 🔍 Info vezi ce legumă e pe un pătrățel și în ce etapă se află.
 
 ### Viața pe străzi
 
@@ -183,6 +200,7 @@ Pe drumuri circulă **mașini**, autoturisme și dubițe, cu geamuri, roți, far
 - Toate clădirile au **ferestre** și se întorc cu fața spre drum.
 - Pe străzi: linie întreruptă, linii galbene pe margini, **treceri de pietoni** la intersecții, trotuare late din dale cărămizii, **stâlpi de iluminat**, bănci, coșuri de gunoi, **stații de autobuz** și copaci.
 - **Magazinele** au pe acoperiș un obiect mare care arată ce vând: burger, coș cu fructe, floare, înghețată sau gogoașă.
+- **Copacii** au coroane bogate din mai mulți bulgări de frunze, mai închise jos și mai deschise sus. Unii pomi au mere, portocale sau flori roz. Brazii au trei etaje de crengi.
 - **Parcurile** au alei, o fântână sau o statuie, copaci rotunzi și bănci.
 - Lângă apă, terenul liber devine **plajă cu nisip și palmieri**.
 - Culorile sunt vii, ca în desenele animate.

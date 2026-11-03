@@ -10,6 +10,8 @@ const COL = {
   R: 0xb5e8ad, H: 0x9fdcc8, C: 0xb3d4f3, I: 0xf0dd9a, park: 0x7fcc4a, base: 0x9b6b43, sand: 0xf3dc9c,
   lot: { R: 0x9ad85e, H: 0xd9d4ca, C: 0xe6e0d4, I: 0xcac3b6 }, paving: 0xe8dfcf, stone: 0xd9d2c5, edge: 0xf2c230, curb: 0xf3ebe2,
   trunk: 0x8a5a32, tree: [0x2f8f3a, 0x3a9a3a, 0x2a7e2e], leaf: [0x5cbf4a, 0x6ccf44, 0x4cb050, 0x82d04e],
+  leafDark: [0x3f9a3a, 0x4aa83a, 0x36923e, 0x5aa83e], leafLight: [0x86d65e, 0x96e25c, 0x74c95c, 0xa6de6a],
+  pine: [0x2f7d3a, 0x3a8a3e, 0x27703a], ride: [0xf04e3e, 0xffc928, 0x2f80ed, 0x3cbf5a, 0xab47bc, 0xff7eb6],
   walls: [0xffd36b, 0xff9fb0, 0xc3a6f0, 0x8fcaf5, 0xffc89a, 0xa8e3b0, 0xfff6e6], roofs: [0x7e57c2, 0xe0453a, 0x2a9d8f, 0x2f6fd6, 0xf08a24, 0x5c6bc0],
   apt: [0xffcf73, 0xff9e9e, 0xb99cf0, 0x8fd0f5, 0xffb37a, 0x9ee0a8], plinth: [0x8a7f74, 0x6f7b86, 0x9a8470, 0x5d6670],
   awning: [0xf04e3e, 0x2f80ed, 0x3cbf5a, 0xffa726, 0xab47bc, 0x1cc1c1], office: [0xbfe3fb, 0xe3cfff, 0xffe0b0, 0xc3efd5],
@@ -101,6 +103,41 @@ function trainModels() {
 function rotorModel() {
   const parts = [0, 1, 2].map(k => new THREE.BoxGeometry(.05, .62, .015).translate(0, .33, 0).rotateZ(k * Math.PI * 2 / 3));
   return mergeGeometries([...parts, new THREE.SphereGeometry(.045, 8, 6)]);
+}
+
+// parcul de distracții: roata mare (se rotește în jurul axei z), carusel (în jurul axei y), vagonet
+function rideModels() {
+  const vc = (geo, hex) => paint(geo, hex);
+  const wheel = [
+    vc(new THREE.TorusGeometry(.42, .012, 6, 40).translate(0, 0, .045), 0xffffff),
+    vc(new THREE.TorusGeometry(.42, .012, 6, 40).translate(0, 0, -.045), 0xffffff),
+    vc(new THREE.TorusGeometry(.2, .008, 6, 24), 0xff7eb6),
+    vc(new THREE.CylinderGeometry(.03, .03, .14, 10).rotateX(Math.PI / 2), 0x9aa0a6),
+  ];
+  for (let k = 0; k < 8; k++) for (const zz of [-.045, .045])
+    wheel.push(vc(new THREE.BoxGeometry(.012, .42, .012).translate(0, .21, zz).rotateZ(k * Math.PI / 4), 0xf4f4f4));
+  wheel.forEach(g => g.deleteAttribute('uv'));
+  const carousel = [];
+  const stripes = 10;
+  for (let k = 0; k < stripes; k++) {
+    const t0 = k / stripes * Math.PI * 2, tl = Math.PI * 2 / stripes, col = k % 2 ? 0xffffff : 0xf04e3e;
+    carousel.push(vc(new THREE.ConeGeometry(.46, .2, 3, 1, false, t0, tl).translate(0, .52, 0), col));
+    carousel.push(vc(new THREE.CylinderGeometry(.46, .46, .06, 3, 1, true, t0, tl).translate(0, .39, 0), k % 2 ? 0xffc928 : 0x2f80ed));
+  }
+  carousel.push(vc(new THREE.SphereGeometry(.04, 8, 6).translate(0, .64, 0), 0xffc928));
+  for (let k = 0; k < 6; k++) {
+    const a = k / 6 * Math.PI * 2, x = Math.sin(a) * .3, z = Math.cos(a) * .3, col = [0xffffff, 0x8b5a2b, 0xf2d0a0][k % 3];
+    carousel.push(vc(new THREE.CylinderGeometry(.01, .01, .34, 6).translate(x, .22, z), 0xd4a64a));
+    carousel.push(vc(new THREE.BoxGeometry(.05, .05, .12).rotateY(a + Math.PI / 2).translate(x, .14 + (k % 2) * .04, z), col));
+    carousel.push(vc(new THREE.BoxGeometry(.03, .05, .04).rotateY(a + Math.PI / 2).translate(x + Math.cos(a) * .06, .19 + (k % 2) * .04, z - Math.sin(a) * .06), col));
+  }
+  carousel.forEach(g => g.deleteAttribute('uv'));
+  return {
+    wheel: mergeGeometries(wheel),
+    gondola: mergeGeometries([new THREE.BoxGeometry(.08, .06, .07).translate(0, -.06, 0), new THREE.BoxGeometry(.09, .015, .08).translate(0, -.02, 0), new THREE.BoxGeometry(.01, .03, .01).translate(0, -.015, 0)]),
+    carousel: mergeGeometries(carousel),
+    cart: mergeGeometries([new THREE.BoxGeometry(.09, .05, .13).translate(0, .025, 0), new THREE.BoxGeometry(.09, .04, .02).translate(0, .06, -.05)]),
+  };
 }
 
 // un om din trei straturi: tricoul și pantalonii au culoarea lor, pielea primește un ton diferit
@@ -255,7 +292,7 @@ export class CityView {
       cyl: new Pool(scene, this.geo.cyl, N * N * 6),
       cone: new Pool(scene, this.geo.cone, N * N * 6),
       flower: new Pool(scene, new THREE.IcosahedronGeometry(.5, 0).translate(0, .5, 0), N * N * 10),
-      ball: new Pool(scene, this.geo.ball, N * N * 8),
+      ball: new Pool(scene, this.geo.ball, N * N * 16),
       torus: new Pool(scene, this.geo.torus, N * N),
       arch: new Pool(scene, this.geo.arch, N * N, { material: new THREE.MeshLambertMaterial({ side: THREE.DoubleSide }) }),
       warn: new Pool(scene, new THREE.OctahedronGeometry(.16), N * N, { shadow: false, material: new THREE.MeshBasicMaterial() }),
@@ -279,6 +316,14 @@ export class CityView {
     this.turbines = [];
     this.spinQ = new THREE.Quaternion();
     this.zAxis = new THREE.Vector3(0, 0, 1);
+    const rides = rideModels(), vcMat = () => new THREE.MeshLambertMaterial({ vertexColors: true });
+    this.ridePools = {
+      wheel: new Pool(scene, rides.wheel, 200, { material: vcMat() }),
+      gondola: new Pool(scene, rides.gondola, 1600),
+      carousel: new Pool(scene, rides.carousel, 200, { material: vcMat() }),
+      cart: new Pool(scene, rides.cart, 600),
+    };
+    this.rides = { wheels: [], carousels: [], coasters: [] };
     // panou solar înclinat spre soare
     this.pools.panel = new Pool(scene, new THREE.BoxGeometry(.4, .018, .26).rotateX(-.5).translate(0, .14, 0), N * N * 4);
     this.white = new THREE.Color(0xffffff);
@@ -365,17 +410,28 @@ export class CityView {
   }
 
   tree(x, z, s, v, pine = false) {
-    if (pine) {
-      this.part('cyl', x, 0, z, .07 * s, .25 * s, .07 * s, COL.trunk);
-      this.part('cone', x, .18 * s, z, .42 * s, .75 * s, .42 * s, pick(COL.tree, v));
+    if (pine) { // brad cu trei etaje de crengi
+      this.part('cyl', x, 0, z, .06 * s, .24 * s, .06 * s, 0x6b4423);
+      for (let j = 0; j < 3; j++)
+        this.part('cone', x, (.14 + j * .19) * s, z, (.52 - j * .13) * s, (.36 - j * .04) * s, (.52 - j * .13) * s, pick(COL.pine, v + j));
       return;
     }
-    // coroană pufoasă din trei bile
-    const c = pick(COL.leaf, v);
-    this.part('cyl', x, 0, z, .06 * s, .3 * s, .06 * s, COL.trunk);
-    this.part('ball', x, .22 * s, z, .48 * s, .42 * s, .48 * s, c);
-    this.part('ball', x + .1 * s, .4 * s, z - .06 * s, .3 * s, .26 * s, .3 * s, c);
-    this.part('ball', x - .09 * s, .37 * s, z + .09 * s, .28 * s, .24 * s, .28 * s, c);
+    // foios: trunchi cu rădăcini, coroană bogată din mai multe bulgări (mai închisă jos, mai deschisă sus)
+    const dark = pick(COL.leafDark, v), mid = pick(COL.leaf, v), light = pick(COL.leafLight, v);
+    this.part('cyl', x, 0, z, .1 * s, .04 * s, .1 * s, COL.trunk);
+    this.part('cyl', x, 0, z, .055 * s, .34 * s, .055 * s, COL.trunk);
+    const blobs = [
+      [0, .3, 0, .5, .4, mid], [.15, .26, .07, .3, .26, dark], [-.14, .26, .09, .3, .26, dark],
+      [.04, .26, -.16, .3, .26, dark], [-.09, .45, -.07, .3, .26, mid], [.1, .46, .05, .28, .25, light], [0, .56, .02, .26, .22, light],
+    ];
+    for (const [bx, by, bz, bw, bh, c] of blobs) this.part('ball', x + bx * s, by * s, z + bz * s, bw * s, bh * s, bw * s, c);
+    if (v % 5 === 0 || v % 7 === 1) { // pom cu fructe sau cu flori
+      const fruit = v % 5 === 0 ? (v % 2 ? 0xe53935 : 0xff9800) : 0xffc1dc;
+      for (let j = 0; j < 7; j++) {
+        const a = j / 7 * Math.PI * 2 + v, rr = .21 + (j % 2) * .04;
+        this.part('ball', x + Math.sin(a) * rr * s, (.36 + (j % 3) * .08) * s, z + Math.cos(a) * rr * s, .07 * s, .07 * s, .07 * s, fruit);
+      }
+    }
   }
 
   palm(x, z, s, v) {
@@ -392,6 +448,7 @@ export class CityView {
     const roads = [], rails = [];
     this.turbines = [];
     this.ranchSpots = [];
+    this.rides = { wheels: [], carousels: [], coasters: [] };
     let stations = 0;
     for (let z = 0; z < N; z++) for (let x = 0; x < N; x++) {
       const i = z * N + x, t = city.terrain[i], k = city.kind[i], lvl = city.level[i], v = city.variant[i];
@@ -406,6 +463,7 @@ export class CityView {
       else if (k === 'farm') gc = COL.soil;
       else if (k === 'solar') gc = 0xcfc8b8;
       else if (k === 'ranch') gc = 0x9ad85e;
+      else if (k === 'fun') gc = 0xf0dfc4;
       else if (t === FOREST) gc = COL.forest;
       // plajă: iarba liberă de lângă apă devine nisip, uneori cu un palmier
       const shore = !k && t === GRASS && [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dz]) =>
@@ -541,6 +599,44 @@ export class CityView {
     while (deck(x - dx * (s + 1), z - dz * (s + 1))) s++;
     while (deck(x + dx * (e + 1), z + dz * (e + 1))) e++;
     return { dx, dz, idx: s, len: s + e + 1 };
+  }
+
+  coasterPoint(t) {
+    return [.36 * Math.cos(t), .1 + .26 * Math.pow((Math.sin(2 * t) + 1) / 2, 2), .3 * Math.sin(t)];
+  }
+
+  // roata mare, caruselul și vagonetele se mișcă tot timpul
+  updateRides() {
+    const t = performance.now() / 1000, P = this.ridePools;
+    for (const p of Object.values(P)) p.n = 0;
+    for (const w of this.rides.wheels) {
+      const a = t * .35 + w.v;
+      this.q.setFromAxisAngle(this.up, w.yaw).multiply(this.spinQ.setFromAxisAngle(this.zAxis, a));
+      this.m.compose(this.v.set(w.x, w.y, w.z), this.q, this.s.set(1, 1, 1));
+      P.wheel.add(this.m, this.white);
+      // cabinele atârnă mereu drept
+      const ys = Math.sin(w.yaw), yc = Math.cos(w.yaw);
+      this.q.setFromAxisAngle(this.up, w.yaw);
+      for (let k = 0; k < 8; k++) {
+        const b = a + k * Math.PI / 4, lx = Math.cos(b) * .42, ly = Math.sin(b) * .42;
+        this.m.compose(this.v.set(w.x + lx * yc, w.y + ly, w.z - lx * ys), this.q, this.s.set(1, 1, 1));
+        P.gondola.add(this.m, this.c.setHex(pick(COL.ride, k + w.v)));
+      }
+    }
+    for (const c of this.rides.carousels) {
+      this.q.setFromAxisAngle(this.up, t * .8 + c.v);
+      this.m.compose(this.v.set(c.x, .06, c.z), this.q, this.s.set(1, 1, 1));
+      P.carousel.add(this.m, this.white);
+    }
+    for (const c of this.rides.coasters) {
+      for (let k = 0; k < 3; k++) {
+        const u = t * 1.1 + c.v - k * .22, [px, py, pz] = this.coasterPoint(u);
+        this.q.setFromAxisAngle(this.up, Math.atan2(-.36 * Math.sin(u), .3 * Math.cos(u)));
+        this.m.compose(this.v.set(c.x + px, py + .022, c.z + pz), this.q, this.s.set(1, 1, 1));
+        P.cart.add(this.m, this.c.setHex(k ? 0xffc928 : 0x2f80ed));
+      }
+    }
+    for (const p of Object.values(P)) p.commit();
   }
 
   // animalele rămân pe loc când se reconstruiește harta; se schimbă doar dacă ferma primește alt fel de animale
@@ -856,50 +952,110 @@ export class CityView {
       return .4;
     }
     if (k === 'farm') {
-      // trei brazde cu câte trei plante mari; cresc cu nivelul (0 = semințe, 3 = gata de cules)
-      const crop = v % 6, s = [0, .5, .78, 1][lvl], along = (v >> 3) % 2, ripe = lvl === 3;
-      for (let row = 0; row < 3; row++) {
-        const o = -.3 + row * .3;
-        this.part('box', cx + (along ? 0 : o), 0, cz + (along ? o : 0), along ? .92 : .2, .04, along ? .2 : .92, COL.furrow);
+      // ramă de lemn, 16 movilițe de pământ cu câte o plantă; grâul e des și auriu
+      const crop = v % 7, s = [0, .5, .78, 1][lvl], ripe = lvl === 3, frame = 0x9c6b3e;
+      for (const q of [-1, 1]) {
+        this.part('box', cx + q * .47, 0, cz, .04, .05, .98, frame);
+        this.part('box', cx, 0, cz + q * .47, .98, .05, .04, frame);
+      }
+      const grid = [-.33, -.11, .11, .33];
+      if (crop === 6) { // grâu
+        for (let gx = 0; gx < 6; gx++) for (let gz = 0; gz < 6; gz++) {
+          const x = cx - .36 + gx * .144 + (hash(i, gx * 7 + gz) - .5) * .04, z = cz - .36 + gz * .144 + (hash(i, gz * 5 + gx) - .5) * .04;
+          if (!lvl) { this.part('ball', x, 0, z, .05, .015, .05, COL.furrow); continue; }
+          this.part('cone', x, 0, z, .06 * s, .3 * s, .06 * s, ripe ? 0xe0b53a : lvl === 2 ? 0xb5c94a : 0x7cbf4a);
+          if (lvl >= 2) this.part('ball', x, .24 * s, z, .035, .09 * s, .035, ripe ? 0xf2c94c : 0xc8d97a);
+        }
+        return .4;
+      }
+      for (const gx of grid) for (const gz of grid) {
+        const x = cx + gx, z = cz + gz, y = .025;
+        this.part('ball', x, 0, z, .17, .05, .17, COL.furrow); // moviliță
         if (!lvl) continue;
-        for (let j = 0; j < 3; j++) {
-          const a = -.3 + j * .3, x = cx + (along ? a : o), z = cz + (along ? o : a), y = .035;
-          if (crop === 0) { // varză: frunze desfăcute și căpățână
-            for (let q = 0; q < 4; q++) {
-              const an = q * Math.PI / 2 + v;
-              this.part('ball', x + Math.sin(an) * .07 * s, y, z + Math.cos(an) * .07 * s, .16 * s, .06 * s, .16 * s, 0x6fb84a);
-            }
-            this.part('ball', x, y + .01, z, .2 * s, .17 * s, .2 * s, 0xb5e07a);
-          } else if (crop === 1) { // morcovi: frunze înalte și „umerii” portocalii
-            for (let q = 0; q < 3; q++) this.part('cone', x + (q - 1) * .035, y, z + (q === 1 ? .03 : -.02), .05 * s, .3 * s, .05 * s, 0x3d9b3a);
-            this.part('ball', x, y - .02, z, .09 * s, .07 * s, .09 * s, 0xf07d1a);
-          } else if (crop === 2) { // roșii pe araci
-            this.part('cyl', x, y, z, .018, .46 * s, .018, 0x8d6e4c);
-            this.part('ball', x, y + .08 * s, z, .2 * s, .3 * s, .2 * s, 0x3a8a34);
-            if (lvl >= 2) for (let q = 0; q < 3; q++)
-              this.part('ball', x + (q - 1) * .07 * s, y + (.16 + (q % 2) * .08) * s, z + .08 * s, .075, .07, .075, ripe ? 0xe0302a : 0x9ccc4a);
-          } else if (crop === 3) { // dovleci mari între frunze
-            for (let q = 0; q < 3; q++) this.part('ball', x + (q - 1) * .09 * s, y, z - .06 * s, .14 * s, .05, .14 * s, 0x4f9a3a);
-            if (lvl >= 2) {
-              this.part('ball', x + .02, y, z + .03, .24 * s, .16 * s, .24 * s, ripe ? 0xf28c1c : 0xb6c94a);
-              this.part('cyl', x + .02, y + .15 * s, z + .03, .02, .04, .02, 0x4a7a2a);
-            }
-          } else if (crop === 4) { // porumb: tulpini înalte cu știuleți
-            for (let q = 0; q < 2; q++) {
-              const qx = x + (q ? .05 : -.05), qz = z + (q ? -.03 : .03);
-              this.part('cyl', qx, y, qz, .025, .6 * s, .025, 0x6aa84f);
-              this.part('cone', qx, y + .1 * s, qz, .12 * s, .35 * s, .12 * s, 0x5d9e46);
-              this.part('cone', qx, y + .56 * s, qz, .04, .1 * s, .04, 0xd9c27a);
-              if (lvl >= 2) this.part('cyl', qx + .03, y + .25 * s, qz, .045, .12 * s, .045, ripe ? 0xffd23f : 0xc8d97a);
-            }
-          } else { // vinete pe tufe
-            this.part('ball', x, y, z, .24 * s, .22 * s, .24 * s, 0x2f6b34);
-            if (lvl >= 2) for (let q = 0; q < 2; q++)
-              this.part('ball', x + (q ? .07 : -.07) * s, y + .02, z + .09 * s, .07, .13 * s, .07, ripe ? 0x5b2a86 : 0x9a7ab8);
+        if (crop === 0) { // varză
+          for (let q = 0; q < 5; q++) {
+            const an = q / 5 * Math.PI * 2 + v;
+            this.part('ball', x + Math.sin(an) * .055 * s, y, z + Math.cos(an) * .055 * s, .12 * s, .05 * s, .12 * s, 0x5fae45);
           }
+          this.part('ball', x, y + .01, z, .15 * s, .13 * s, .15 * s, 0xb9e27f);
+        } else if (crop === 1) { // morcovi
+          for (let q = 0; q < 4; q++) this.part('cone', x + ((q % 2) - .5) * .04, y, z + ((q >> 1) - .5) * .04, .05 * s, .26 * s, .05 * s, q % 2 ? 0x3d9b3a : 0x4fb043);
+          this.part('ball', x, y - .015, z, .07 * s, .06 * s, .07 * s, 0xf07d1a);
+        } else if (crop === 2) { // roșii
+          this.part('cyl', x, y, z, .016, .4 * s, .016, 0x8d6e4c);
+          this.part('ball', x, y + .06 * s, z, .17 * s, .26 * s, .17 * s, 0x3a8a34);
+          this.part('ball', x + .03 * s, y + .18 * s, z - .02, .1 * s, .12 * s, .1 * s, 0x4aa83a);
+          if (lvl >= 2) for (let q = 0; q < 3; q++)
+            this.part('ball', x + (q - 1) * .055 * s, y + (.12 + (q % 2) * .08) * s, z + .07 * s, .06, .055, .06, ripe ? 0xe0302a : 0x9ccc4a);
+        } else if (crop === 3) { // dovleci cu frunze mari și coaste
+          for (let q = 0; q < 3; q++) {
+            const an = q / 3 * Math.PI * 2 + v;
+            this.part('ball', x + Math.sin(an) * .07 * s, y, z + Math.cos(an) * .07 * s, .13 * s, .045, .13 * s, 0x4f9a3a);
+          }
+          if (lvl >= 2) {
+            const pc = ripe ? 0xf28c1c : 0xb6c94a;
+            this.part('ball', x, y, z, .17 * s, .12 * s, .17 * s, pc);
+            this.part('ball', x - .045 * s, y, z, .1 * s, .11 * s, .14 * s, pc);
+            this.part('ball', x + .045 * s, y, z, .1 * s, .11 * s, .14 * s, pc);
+            this.part('cyl', x, y + .11 * s, z, .015, .035, .015, 0x4a7a2a);
+          }
+        } else if (crop === 4) { // porumb
+          this.part('cyl', x, y, z, .022, .55 * s, .022, 0x6aa84f);
+          this.part('cone', x, y + .05 * s, z, .14 * s, .34 * s, .14 * s, 0x5d9e46);
+          this.part('cone', x, y + .3 * s, z, .1 * s, .24 * s, .1 * s, 0x6fb24f);
+          this.part('cone', x, y + .52 * s, z, .035, .09 * s, .035, 0xd9c27a);
+          if (lvl >= 2) this.part('cyl', x + .03, y + .22 * s, z, .04, .11 * s, .04, ripe ? 0xffd23f : 0xc8d97a);
+        } else { // vinete cu flori mov
+          this.part('ball', x, y, z, .19 * s, .2 * s, .19 * s, 0x2f6b34);
+          for (let q = 0; q < 2; q++) this.part('ball', x + (q ? .05 : -.05) * s, y + .17 * s, z - .03, .045, .03, .045, 0xb39ddb);
+          if (lvl >= 2) for (let q = 0; q < 2; q++)
+            this.part('ball', x + (q ? .06 : -.06) * s, y + .02, z + .07 * s, .055, .11 * s, .055, ripe ? 0x5b2a86 : 0x9a7ab8);
         }
       }
       return .4;
+    }
+    if (k === 'fun') {
+      // fiecare pătrățel are altă atracție: roata mare, carusel, montagne russe sau chioșc cu baloane
+      const kind = v % 4;
+      this.part('box', cx, 0, cz, .96, .015, .96, 0xf6e7cf);
+      for (const [fx, fz] of [[-.44, -.44], [.44, -.44], [-.44, .44], [.44, .44]]) this.part('flower', fx + cx, 0, fz + cz, .1, .09, .1, 0x4caf50);
+      if (kind === 0) { // roata mare
+        for (const q of [-1, 1]) for (const lx of [-.14, .14]) P('box', lx, 0, q * .09, .03, .62, .03, 0xe8e8e8);
+        P('box', 0, .6, 0, .32, .03, .22, 0xe8e8e8);
+        P('box', 0, 0, .3, .2, .14, .12, 0xf04e3e);
+        P('box', 0, .14, .3, .24, .03, .16, 0xffffff);
+        this.rides.wheels.push({ x: cx, y: .62, z: cz, yaw: r, v });
+        return 1.1;
+      }
+      if (kind === 1) { // carusel
+        this.part('cyl', cx, 0, cz, .86, .06, .86, 0xffffff);
+        this.part('cyl', cx, .06, cz, .8, .02, .8, 0xff7eb6);
+        this.part('cyl', cx, 0, cz, .06, .55, .06, 0xd4a64a);
+        this.rides.carousels.push({ x: cx, z: cz, v });
+        return .8;
+      }
+      if (kind === 2) { // montagne russe: șină în buclă pe stâlpi, cu vagonete
+        const pts = 36;
+        for (let j = 0; j < pts; j++) {
+          const t = j / pts * Math.PI * 2, [px, py, pz] = this.coasterPoint(t);
+          this.part('box', cx + px, py, cz + pz, .07, .022, .07, 0xf04e3e);
+          if (j % 3 === 0) this.part('cyl', cx + px, 0, cz + pz, .014, py, .014, 0xb0b8c0);
+        }
+        this.rides.coasters.push({ x: cx, z: cz, v });
+        return .6;
+      }
+      // chioșc cu vată de zahăr și baloane
+      P('box', -.12, 0, -.05, .34, .24, .26, 0xfff3e0);
+      P('box', -.12, .24, -.05, .4, .03, .32, 0xff7eb6);
+      P('box', -.12, .17, .1, .4, .04, .1, 0xffffff);
+      P('cone', -.12, .27, -.05, .26, .1, .26, 0xff7eb6);
+      for (let j = 0; j < 5; j++) {
+        const bx = .22 + (j % 2) * .07 - .03, bz = .1 + j * .05 - .1, by = .38 + (j % 3) * .06;
+        P('cyl', bx, 0, bz, .004, by, .004, 0xdddddd);
+        P('ball', bx, by, bz, .07, .085, .07, pick(COL.ride, v + j));
+      }
+      P('cyl', .25, 0, -.3, .1, .05, .1, 0xffffff);
+      return .7;
     }
     if (k === 'station') {
       // gară din cărămidă, cu turn cu ceas și copertină arcuită din sticlă spre șine
@@ -1134,6 +1290,7 @@ export class CityView {
     if (Math.abs(d) > .001) { this.yaw += d * Math.min(1, dt * 8); this.updateCamera(); }
     this.pools.warn.mesh.position.y = Math.sin(performance.now() / 300) * .06;
     this.updateAnimals(dt);
+    this.updateRides();
     const spin = performance.now() / 1000 * 2.4, p = this.rotors;
     p.n = 0;
     for (const t of this.turbines) {

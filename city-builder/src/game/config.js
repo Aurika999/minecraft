@@ -33,6 +33,7 @@ export const TOOLS = [
   { id: 'farm', name: 'Legume', icon: '🥕', cost: 30, mode: 'rect', help: 'Plantează legume. Cresc singure, iar când sunt coapte se culeg și se vând. Lângă apă cresc mai repede.' },
   { id: 'ranch', name: 'Fermă', icon: '🐄', cost: 600, mode: 'tap', help: 'Fermă cu animale sau păsări. Apasă pe ea cu 🔍 Info ca să alegi ce crești: fiecare aduce alți bani.' },
   { id: 'station', name: 'Gară', icon: '🚉', cost: 1500, upkeep: 30, radius: 10, mode: 'tap', help: 'Pune-o lângă șine: vin mai multe trenuri, iar terenul din jur se scumpește.' },
+  { id: 'fun', name: 'Parc de distracții', icon: '🎡', cost: 1200, upkeep: 20, radius: 6, sells: 60, mode: 'rect', help: 'Roată mare, carusel, montagne russe și chioșcuri cu baloane. Vinde bilete: +60 $ pe lună fiecare pătrățel, iar oamenii din jur sunt mai fericiți.' },
   { id: 'police', name: 'Poliție', icon: '👮', cost: 800, upkeep: 40, radius: 9, mode: 'tap', help: 'Siguranță: oamenii sunt mai mulțumiți.' },
   { id: 'fire', name: 'Pompieri', icon: '🚒', cost: 800, upkeep: 40, radius: 9, mode: 'tap', help: 'Fără pompieri pot izbucni incendii.' },
   { id: 'school', name: 'Școală', icon: '🏫', cost: 1000, upkeep: 50, radius: 9, mode: 'tap', help: 'Educația crește valoarea terenului.' },
@@ -40,16 +41,16 @@ export const TOOLS = [
 ];
 export const TOOL = Object.fromEntries(TOOLS.map(t => [t.id, t]));
 
-export const KINDS = [null, 'road', 'R', 'C', 'I', 'power', 'water', 'park', 'police', 'fire', 'school', 'garden', 'farm', 'rail', 'crossing', 'station', 'H', 'wind', 'solar', 'ranch'];
+export const KINDS = [null, 'road', 'R', 'C', 'I', 'power', 'water', 'park', 'police', 'fire', 'school', 'garden', 'farm', 'rail', 'crossing', 'station', 'H', 'wind', 'solar', 'ranch', 'fun'];
 export const KIND_NAME = {
   road: 'Drum', R: 'Zonă rezidențială', C: 'Zonă comercială', I: 'Zonă industrială', power: 'Centrală electrică',
   water: 'Turn de apă', park: 'Parc', police: 'Secție de poliție', fire: 'Stație de pompieri', school: 'Școală',
   garden: 'Curte cu flori', farm: 'Grădină de legume',
-  wind: 'Eoliană', solar: 'Parc de panouri solare', ranch: 'Fermă de animale',
+  fun: 'Parc de distracții', wind: 'Eoliană', solar: 'Parc de panouri solare', ranch: 'Fermă de animale',
   H: 'Zonă de blocuri', rail: 'Cale ferată', crossing: 'Trecere la nivel cu calea ferată', station: 'Gară',
 };
 // legumele: tipul depinde de pătrățel; prețul e pentru un pătrățel cules
-export const CROPS = ['Varză', 'Morcovi', 'Roșii', 'Dovleci', 'Porumb', 'Vinete'];
+export const CROPS = ['Varză', 'Morcovi', 'Roșii', 'Dovleci', 'Porumb', 'Vinete', 'Grâu'];
 export const CROP_STAGES = ['Semințe puse', 'Răsaduri', 'Cresc', 'Gata de cules'];
 export const HARVEST_PRICE = 12;
 // ce poți crește la fermă: prețul se plătește când schimbi, venitul vine lunar
