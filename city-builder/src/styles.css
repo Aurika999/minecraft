@@ -151,6 +151,15 @@ button { font: inherit; color: inherit; cursor: pointer; border: 0; background: 
   border: 2px solid #6b4220; box-shadow: 0 4px 0 #5a3618, 0 6px 12px rgba(0, 0, 0, .25);
 }
 .install-btn span { font-size: 22px; }
+.guide-btn {
+  display: flex; align-items: center; gap: 12px; padding: 10px 14px; margin: 6px 0 4px; border-radius: 12px;
+  background: var(--soft, #eef6fd); border: 1px solid #cfe2f6; color: var(--ink); text-decoration: none;
+}
+.guide-btn > span:first-child { font-size: 28px; }
+.guide-btn b { display: block; font-size: 15px; }
+.guide-btn small { color: var(--muted); font-size: 12.5px; }
+.guide-btn:hover { background: #e2effb; }
+.guide-link { color: var(--accent); font-weight: 600; text-decoration: none; }
 .install-btn:active { transform: translateY(2px); box-shadow: 0 2px 0 #5a3618; }
 
 @media (max-width: 640px) {

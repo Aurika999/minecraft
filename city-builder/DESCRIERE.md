@@ -186,7 +186,9 @@ Pe fiecare pătrățel cu 🥕 Legume crește un singur fel de legumă: varză, 
 
 ### Viața pe străzi
 
-Pe drumuri circulă **mașini**, autoturisme și dubițe, cu geamuri, roți, faruri și stopuri. Merg pe banda din dreapta și virează lin. Pe **trotuare** se plimbă **oameni**. Cu cât orașul are mai mulți locuitori, cu atât apar mai multe mașini și mai mulți oameni.
+Pe drumuri circulă **8 tipuri de vehicule**: autoturisme, 🚕 taxiuri galbene cu semn pe acoperiș, 🚓 mașini de poliție cu girofar, 🚑 ambulanțe cu cruce roșie, 🛻 camionete cu colete în ladă, 🚙 SUV-uri cu roată de rezervă, 🚚 camioane de livrări și dubițe. Au geamuri înclinate, jante, oglinzi, bare de protecție, faruri și stopuri. Merg pe banda din dreapta și virează lin.
+
+Pe străzile drepte, la fiecare 4 pătrățele, e o **trecere de pietoni cu semafoare** pe ambele trotuare: unul mare pentru mașini (roșu, galben, verde) și unul mic pentru pietoni. Când mașinile au 🟢 verde, trec, iar pietonii așteaptă pe trotuar. Apoi se face 🟡 galben și 🔴 roșu: mașinile **opresc** la rând în fața zebrei, iar pietonii primesc verde și **traversează**. Un ciclu durează cam 10 secunde la viteza normală (se oprește la pauză și merge mai repede la ▶▶). Semafoarele nu se schimbă toate deodată. Pe **trotuare** se plimbă **oameni**. Ei merg doar pe trotuar, ocolesc colțurile și capetele de stradă și **traversează numai pe zebre**: la intersecții (mașinile care vin pe strada respectivă opresc) și la trecerile cu semafor, unde așteaptă pe trotuar până primesc verde. Mașinile țin distanță între ele și stau la rând. Cu cât orașul are mai mulți locuitori, cu atât apar mai multe mașini și mai mulți oameni.
 
 ### Cum arată orașul
 
@@ -232,6 +234,8 @@ Timpul are patru viteze: **pauză, normal, rapid, foarte rapid**. La viteza norm
 ---
 
 ## Salvare
+
+În meniul ☰ (și pe ecranul de bun venit) e și **📖 Ghidul jocului**, un PDF cu tot despre joc și imagini (`public/Orasul-Meu-Ghid.pdf`).
 
 Orașul se **salvează automat** în browser (localStorage) și se încarcă singur la următoarea deschidere. Din meniul ☰ poți începe un **oraș nou**, pe o hartă generată la întâmplare.
 

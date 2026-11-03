@@ -39,31 +39,97 @@ const wheels = (x, z, r) => [[-x, -z], [x, -z], [-x, z], [x, z]].map(([a, b]) =>
   paint(new THREE.CylinderGeometry(r, r, .028, 10).rotateZ(Math.PI / 2).translate(a, r, b), 0x161616));
 const plain = geos => mergeGeometries(geos.map(g => { g.deleteAttribute('color'); return g; }));
 
-// vehiculele: caroseria (colorată diferit la fiecare mașină) și detaliile (geamuri, roți, lumini)
+// vehiculele: caroseria (colorată diferit la fiecare mașină, sau fixă: taxi, poliție, ambulanță) și detaliile
+// (geamuri, roți cu jante, lumini). weight = cât de des apare pe străzi. Toate privesc spre +z.
 function vehicleModels() {
-  const glass = 0x26323f, light = 0xfff3c4, stop = 0xd0281e;
-  const sedan = {
-    body: plain([boxAt(.18, .06, .37, 0, .03, 0), boxAt(.15, .016, .17, 0, .142, -.015)]),
-    detail: mergeGeometries([
-      boxAt(.152, .052, .175, 0, .09, -.015, glass),
-      boxAt(.172, .012, .375, 0, .028, 0, 0x2a2a2a),
-      boxAt(.04, .02, .01, -.06, .065, .186, light), boxAt(.04, .02, .01, .06, .065, .186, light),
-      boxAt(.04, .018, .01, -.06, .065, -.186, stop), boxAt(.04, .018, .01, .06, .065, -.186, stop),
-      ...wheels(.085, .115, .034),
+  const glass = 0x26323f, light = 0xfff3c4, stop = 0xd0281e, dark = 0x2a2a2a, chrome = 0xcfd4d9;
+  // geam înclinat: rx < 0 apleacă partea de sus spre spate (parbriz), rx > 0 spre față (lunetă)
+  const pane = (w, h, x, y, z, rx) => paint(new THREE.BoxGeometry(w, h, .008).rotateX(rx).translate(x, y, z), glass);
+  const tyres = (x, zs, r) => zs.flatMap(z => [-x, x].flatMap(a => [
+    paint(new THREE.CylinderGeometry(r, r, .03, 12).rotateZ(Math.PI / 2).translate(a, r, z), 0x161616),
+    paint(new THREE.CylinderGeometry(r * .55, r * .55, .032, 10).rotateZ(Math.PI / 2).translate(a, r, z), chrome),
+  ]));
+  const lights = (x, y, front, back) => [
+    boxAt(.04, .02, .01, -x, y, front, light), boxAt(.04, .02, .01, x, y, front, light),
+    boxAt(.04, .018, .01, -x, y, back, stop), boxAt(.04, .018, .01, x, y, back, stop),
+  ];
+  const bumpers = (w, front, back) => [boxAt(w, .022, .016, 0, .028, front, dark), boxAt(w, .022, .016, 0, .028, back, dark)];
+  const mirrors = (x, y, z) => [boxAt(.018, .016, .012, -x, y, z, dark), boxAt(.018, .016, .012, x, y, z, dark)];
+  const merge = geos => mergeGeometries(geos);
+
+  // autoturism: capotă și portbagaj joase, habitaclu cu geamuri înclinate
+  const sedanBody = () => plain([boxAt(.19, .062, .38, 0, .03, 0), boxAt(.164, .058, .17, 0, .092, -.025), boxAt(.164, .014, .13, 0, .15, -.03)]);
+  const sedanDetail = extra => merge([
+    boxAt(.168, .038, .15, 0, .102, -.025, glass),
+    pane(.15, .065, 0, .123, .072, -.6), pane(.15, .06, 0, .12, -.118, .6),
+    ...bumpers(.19, .195, -.195), ...lights(.06, .062, .191, -.191), ...mirrors(.095, .1, .05),
+    ...tyres(.088, [-.12, .12], .036), ...extra,
+  ]);
+  const sedan = { body: sedanBody(), detail: sedanDetail([]), weight: 34 };
+  const taxi = {
+    body: sedanBody(), fixed: 0xffc400, weight: 10,
+    detail: sedanDetail([boxAt(.07, .03, .04, 0, .164, -.03, 0xffffff), boxAt(.072, .01, .042, 0, .174, -.03, 0x222222), boxAt(.196, .014, .2, 0, .07, 0, 0x222222)]),
+  };
+  const police = {
+    body: sedanBody(), fixed: 0xf5f5f5, weight: 6,
+    detail: sedanDetail([
+      boxAt(.196, .024, .22, 0, .058, 0, 0x1e3a8a), boxAt(.192, .01, .1, 0, .092, .14, 0x1e3a8a),
+      boxAt(.05, .024, .035, -.027, .164, -.03, 0xe53935), boxAt(.05, .024, .035, .027, .164, -.03, 0x1e88e5),
+    ]),
+  };
+  const ambulance = {
+    body: plain([boxAt(.2, .09, .12, 0, .03, .17), boxAt(.21, .19, .32, 0, .03, -.05)]), fixed: 0xfafafa, weight: 4,
+    detail: merge([
+      pane(.17, .05, 0, .1, .232, -.5), boxAt(.214, .04, .07, 0, .13, .08, glass),
+      boxAt(.216, .028, .44, 0, .085, 0, 0xd32f2f), boxAt(.216, .012, .32, 0, .2, -.05, 0xd32f2f),
+      boxAt(.002, .06, .02, -.108, .12, -.07, 0xd32f2f), boxAt(.002, .02, .06, -.108, .14, -.07, 0xd32f2f),
+      boxAt(.002, .06, .02, .108, .12, -.07, 0xd32f2f), boxAt(.002, .02, .06, .108, .14, -.07, 0xd32f2f),
+      boxAt(.05, .022, .03, -.03, .22, .09, 0xe53935), boxAt(.05, .022, .03, .03, .22, .09, 0x1e88e5),
+      ...bumpers(.2, .236, -.215), ...lights(.065, .065, .231, -.211), ...mirrors(.108, .1, .12),
+      ...tyres(.092, [-.14, .13], .038),
+    ]),
+  };
+  const pickup = {
+    body: plain([
+      boxAt(.19, .065, .12, 0, .03, .15), boxAt(.19, .13, .14, 0, .03, .03), boxAt(.19, .03, .2, 0, .03, -.14),
+      boxAt(.014, .05, .2, -.088, .06, -.14), boxAt(.014, .05, .2, .088, .06, -.14), boxAt(.19, .05, .014, 0, .06, -.233),
+    ]), weight: 12,
+    detail: merge([
+      pane(.16, .06, 0, .13, .1, -.55), boxAt(.194, .04, .09, 0, .115, .025, glass), pane(.16, .04, 0, .13, -.042, 0),
+      boxAt(.07, .05, .06, -.035, .06, -.1, 0xb07a4a), boxAt(.06, .045, .07, .04, .06, -.17, 0xc8925a), boxAt(.05, .04, .05, .03, .11, -.1, 0xd9a86c),
+      ...bumpers(.19, .215, -.245), ...lights(.06, .065, .211, -.241), ...mirrors(.096, .11, .09),
+      ...tyres(.09, [-.14, .13], .042),
+    ]),
+  };
+  const suv = {
+    body: plain([boxAt(.2, .09, .37, 0, .036, 0), boxAt(.184, .075, .25, 0, .126, -.03), boxAt(.184, .014, .22, 0, .2, -.035)]), weight: 14,
+    detail: merge([
+      boxAt(.188, .045, .22, 0, .14, -.03, glass), pane(.16, .07, 0, .16, .1, -.35), pane(.16, .06, 0, .158, -.157, .2),
+      boxAt(.15, .012, .18, 0, .214, -.035, dark), // portbagaj pe acoperiș
+      paint(new THREE.CylinderGeometry(.042, .042, .03, 12).rotateX(Math.PI / 2).translate(0, .11, -.2), 0x161616), // roata de rezervă
+      ...bumpers(.2, .19, -.19), ...lights(.065, .08, .186, -.186), ...mirrors(.1, .13, .07),
+      ...tyres(.095, [-.12, .12], .044),
+    ]),
+  };
+  const truck = {
+    body: plain([boxAt(.2, .16, .13, 0, .03, .17), boxAt(.2, .02, .32, 0, .04, -.06)]), weight: 9,
+    detail: merge([
+      pane(.17, .06, 0, .15, .236, -.3), boxAt(.204, .045, .08, 0, .14, .19, glass),
+      boxAt(.214, .22, .3, 0, .06, -.07, 0xf2f2f2), boxAt(.216, .04, .3, 0, .16, -.07, 0x2f80ed), // lada de marfă cu dungă
+      ...bumpers(.2, .24, -.225), ...lights(.065, .07, .236, -.221), ...mirrors(.11, .14, .2),
+      ...tyres(.095, [-.17, -.08, .16], .04),
     ]),
   };
   const van = {
-    body: plain([boxAt(.19, .145, .42, 0, .03, 0)]),
-    detail: mergeGeometries([
+    body: plain([boxAt(.19, .145, .42, 0, .03, 0)]), weight: 11,
+    detail: merge([
       boxAt(.172, .05, .01, 0, .11, .211, glass),
       boxAt(.196, .036, .26, 0, .118, -.03, glass),
-      boxAt(.182, .014, .424, 0, .028, 0, 0x2a2a2a),
-      boxAt(.04, .02, .01, -.065, .07, .212, light), boxAt(.04, .02, .01, .065, .07, .212, light),
-      boxAt(.04, .02, .01, -.065, .07, -.212, stop), boxAt(.04, .02, .01, .065, .07, -.212, stop),
-      ...wheels(.09, .13, .036),
+      ...bumpers(.19, .215, -.215), ...lights(.065, .07, .212, -.212), ...mirrors(.1, .12, .17),
+      ...tyres(.09, [-.13, .13], .036),
     ]),
   };
-  return [sedan, van];
+  return [sedan, taxi, police, ambulance, pickup, suv, truck, van];
 }
 
 // trenul: o locomotivă cu aburi și vagoane de călători (fața spre +z)
@@ -301,7 +367,14 @@ export class CityView {
     // mașini și oameni: pentru fiecare model, un strat colorat și un strat cu detalii
     const detailMat = () => new THREE.MeshLambertMaterial({ vertexColors: true });
     const layers = (geos, max) => geos.map(g => new Pool(scene, g, max, g.attributes.color ? { material: detailMat() } : {}));
-    this.carModels = vehicleModels().map(m => layers([m.body, m.detail], MAX_CARS));
+    const vm = vehicleModels();
+    this.carModels = vm.map(m => layers([m.body, m.detail], MAX_CARS));
+    this.carKinds = vm.map(m => ({ fixed: m.fixed, weight: m.weight }));
+    this.crossTiles = new Set();
+    this.signals = [];
+    this.signalAt = new Map();
+    this.trafficClock = 0;
+    this.signalPool = new Pool(scene, new THREE.SphereGeometry(.5, 8, 6), 4000, { shadow: false, material: new THREE.MeshBasicMaterial() });
     this.personLayers = layers(personModel(), MAX_PEOPLE);
     this.people = [];
     const tm = trainModels();
@@ -530,7 +603,7 @@ export class CityView {
     this.turbines = [];
     this.ranchSpots = [];
     this.rides = { wheels: [], carousels: [], coasters: [] };
-    const bigLots = this.findBigLots(city);
+    const bigLots = this.findBigLots(city), crossTiles = new Set(), signals = [];
     let stations = 0;
     for (let z = 0; z < N; z++) for (let x = 0; x < N; x++) {
       const i = z * N + x, t = city.terrain[i], k = city.kind[i], lvl = city.level[i], v = city.variant[i];
@@ -584,6 +657,28 @@ export class CityView {
           const yMid = H * Math.sin(Math.PI * (idx + .5) / len);
           if (yMid > H * .55) this.part('box', cx, yMid - .03, cz, az ? .92 : .045, .035, ax ? .92 : .045, steel);
         }
+        // trecere de pietoni pe străzile drepte, la fiecare 4 pătrățele, cu indicatoare albastre
+        const alongX = isRoad(x + 1, z) && isRoad(x - 1, z) && !isRoad(x, z + 1) && !isRoad(x, z - 1);
+        const alongZ = isRoad(x, z + 1) && isRoad(x, z - 1) && !isRoad(x + 1, z) && !isRoad(x - 1, z);
+        const zebra = t !== WATER && (alongX || alongZ) && (alongX ? x : z) % 4 === 2;
+        if (zebra) {
+          crossTiles.add(i);
+          for (let q = -2; q <= 2; q++) {
+            const o = q * .12;
+            this.part('mark', cx + (alongZ ? o : 0), .002, cz + (alongX ? o : 0), alongX ? .26 : .065, .008, alongX ? .065 : .26, 0xf7f7f7);
+          }
+          // semafoare pe ambele trotuare: cel mare pentru mașini, cel mic pentru pietoni (becurile se aprind în updateTraffic)
+          const poles = [];
+          for (const q of [-1, 1]) {
+            const sx = cx + (alongZ ? q * .45 : .2), sz = cz + (alongX ? q * .45 : .2);
+            this.part('cyl', sx, 0, sz, .016, .3, .016, 0x3a3f45);
+            this.part('box', sx, .3, sz, alongX ? .03 : .056, .15, alongX ? .056 : .03, 0x2b2b2b);
+            this.part('box', sx, .445, sz, alongX ? .04 : .066, .012, alongX ? .066 : .04, 0x2b2b2b);
+            this.part('box', sx, .16, sz, alongX ? .05 : .022, .06, alongX ? .022 : .05, 0x2b2b2b);
+            poles.push([sx, sz]);
+          }
+          signals.push({ i, poles, alongX, off: (i * 1.7) % 10 });
+        }
         let lamp = t !== WATER && v % 3 === 0;
         for (const [dx, dz] of nb) {
           if (!isRoad(x + dx, z + dz)) {
@@ -619,9 +714,9 @@ export class CityView {
             // trecere de pietoni pe fiecare braț al intersecției
             for (let q = -2; q <= 2; q++) {
               const o = q * .12;
-              this.part('mark', cx + dx * .36 + (dz ? o : 0), .002, cz + dz * .36 + (dx ? o : 0), dx ? .12 : .06, .008, dz ? .12 : .06, 0xf7f7f7);
+              this.part('mark', cx + dx * .41 + (dz ? o : 0), .002, cz + dz * .41 + (dx ? o : 0), dx ? .12 : .06, .008, dz ? .12 : .06, 0xf7f7f7);
             }
-          } else {
+          } else if (!zebra) {
             for (const o of [.12, .37]) this.part('mark', cx + dx * o, .002, cz + dz * o, dx ? .14 : .035, .008, dz ? .14 : .035, 0xf4f1e4);
           }
         }
@@ -667,6 +762,10 @@ export class CityView {
     for (const p of Object.values(this.pools)) p.commit();
     this.roads = roads;
     this.roadSet = new Set(roads.map(([x, z]) => z * N + x));
+    this.crossTiles = crossTiles;
+    this.signals = signals;
+    this.signalAt = new Map(signals.map(s => [s.i, s]));
+    this.walk = this.buildWalk(city);
     this.rails = rails;
     this.railSet = new Set(rails.map(([x, z]) => z * N + x));
     this.stations = stations;
@@ -1249,7 +1348,8 @@ export class CityView {
   // ---------- mașini ----------
 
   // mașinile merg pe banda din dreapta, oamenii pe trotuar; amândouă trec din pătrățel în pătrățel de drum
-  moveAlong(list, dt, target, make, lane) {
+  // hold(o) = true oprește pe loc (mașina așteaptă la zebră, omul traversează); onNode(o) = a ajuns într-un pătrățel nou
+  moveAlong(list, dt, target, make, lane, { hold, onNode } = {}) {
     const roads = this.roads || [], set = this.roadSet;
     const isRoad = (x, z) => x >= 0 && z >= 0 && x < N && z < N && set.has(z * N + x);
     const neighbors = (x, z) => [[1, 0], [-1, 0], [0, 1], [0, -1]].map(([dx, dz]) => [x + dx, z + dz]).filter(([a, b]) => isRoad(a, b));
@@ -1265,15 +1365,17 @@ export class CityView {
     for (let k = 0; k < list.length; k++) {
       let o = list[k];
       if (!isRoad(...o.from) || !isRoad(...o.to)) { o = list[k] = spawn(); if (!o) { list.splice(k--, 1); continue; } }
-      o.t += dt * o.speed;
+      if (!hold?.(o)) o.t += dt * o.speed;
       while (o.t >= 1) {
         o.t -= 1;
         const nb = neighbors(...o.to), fwd = nb.filter(([a, b]) => a !== o.from[0] || b !== o.from[1]);
         const opts = fwd.length ? fwd : nb;
         o.from = o.to;
         o.to = opts.length ? opts[Math.random() * opts.length | 0] : o.from;
+        onNode?.(o);
       }
       const dx = o.to[0] - o.from[0], dz = o.to[1] - o.from[1], off = lane(o);
+      o.dx = dx; o.dz = dz;
       o.x = o.from[0] + dx * o.t - N / 2 + .5 - dz * off;
       o.z = o.from[1] + dz * o.t - N / 2 + .5 + dx * off;
       // virează lin în loc să se întoarcă dintr-odată
@@ -1291,14 +1393,153 @@ export class CityView {
     layers.forEach((pool, j) => pool.add(this.m, colors[j] == null ? this.white : this.c.setHex(colors[j])));
   }
 
-  updateTraffic(dt, cars, people) {
+  // trotuarele ca o rețea de puncte: colțurile fiecărui pătrățel de drum, legate pe marginile fără stradă (trotuar),
+  // între pătrățele vecine și prin zebre: la intersecții și la trecerile cu semafor. Altfel nu se poate traversa.
+  buildWalk(city) {
+    const isRoad = (a, b) => a >= 0 && b >= 0 && a < N && b < N && ROADISH.has(city.kind[b * N + a]);
+    const nodes = [], adj = [], id = new Map(), W = .42;
+    const node = (key, x, z) => {
+      if (!id.has(key)) { id.set(key, nodes.length); nodes.push({ x, z, key }); adj.push([]); }
+      return id.get(key);
+    };
+    const link = (a, b, cross = null) => { adj[a].push({ to: b, cross }); adj[b].push({ to: a, cross }); };
+    const ci = (a, b) => (a > 0 ? 1 : 0) + (b > 0 ? 2 : 0);
+    for (const [x, z] of this.roads) {
+      const i = z * N + x, cx = x - N / 2 + .5, cz = z - N / 2 + .5;
+      const corner = (a, b) => node(i * 8 + ci(a, b), cx + a * W, cz + b * W);
+      const inter = [[1, 0], [-1, 0], [0, 1], [0, -1]].filter(([dx, dz]) => isRoad(x + dx, z + dz)).length >= 3;
+      for (const s of [-1, 1]) {
+        // o latură fără stradă e trotuar; o latură din care pleacă o stradă se poate trece doar pe zebra intersecției
+        if (!isRoad(x, z + s)) link(corner(-1, s), corner(1, s));
+        else if (inter) link(corner(-1, s), corner(1, s), { tile: i, arm: [0, s] });
+        if (!isRoad(x + s, z)) link(corner(s, -1), corner(s, 1));
+        else if (inter) link(corner(s, -1), corner(s, 1), { tile: i, arm: [s, 0] });
+      }
+      const sig = this.signalAt.get(i);
+      if (sig) { // trecerea cu semafor: câte un punct pe fiecare trotuar, iar între ele zebra
+        const m = [-1, 1].map(s => sig.alongX ? node(i * 8 + 4 + (s > 0), cx, cz + s * W) : node(i * 8 + 4 + (s > 0), cx + s * W, cz));
+        [-1, 1].forEach((s, j) => {
+          if (sig.alongX) { link(m[j], corner(-1, s)); link(m[j], corner(1, s)); } else { link(m[j], corner(s, -1)); link(m[j], corner(s, 1)); }
+        });
+        link(m[0], m[1], { tile: i, signal: sig });
+      }
+      if (isRoad(x + 1, z)) for (const s of [-1, 1]) link(corner(1, s), node((i + 1) * 8 + ci(-1, s), cx + 1 - W, cz + s * W));
+      if (isRoad(x, z + 1)) for (const s of [-1, 1]) link(corner(s, 1), node((i + N) * 8 + ci(s, -1), cx + s * W, cz + 1 - W));
+    }
+    return { nodes, adj, id };
+  }
+
+  // oamenii merg din punct în punct pe trotuar; traversează doar pe zebre, iar la semafor așteaptă verdele lor
+  updatePeople(dt, target, light, phase) {
+    const W = this.walk, list = this.people;
+    if (!W || W.nodes.length < 2) { list.length = 0; return; }
     const rnd = arr => pick(arr, Math.random() * 1000 | 0);
-    this.moveAlong(this.cars, dt, Math.min(MAX_CARS, cars),
-      () => ({ speed: .9 + Math.random() * .7, model: Math.random() < .2 ? 1 : 0, color: rnd(COL.car) }),
-      () => .15);
-    this.moveAlong(this.people, dt, Math.min(MAX_PEOPLE, people),
-      () => ({ speed: .22 + Math.random() * .16, side: Math.random() < .5 ? 1 : -1, shirt: rnd(COL.shirts), pants: rnd(COL.pants), skin: rnd(COL.skins), step: Math.random() * 6 }),
-      p => .42 * p.side);
+    const pedGreen = s => light(s) === 'red' && phase(s) < 7.6; // destul timp ca să ajungă dincolo
+    const spawn = () => {
+      const a = Math.random() * W.nodes.length | 0, opts = W.adj[a].filter(e => !e.cross);
+      if (!opts.length) return null;
+      return {
+        a: W.nodes[a].key, b: W.nodes[opts[Math.random() * opts.length | 0].to].key, t: Math.random(), cross: null, waiting: null,
+        speed: .22 + Math.random() * .16, yaw: Math.random() * 6.3, step: Math.random() * 6,
+        shirt: rnd(COL.shirts), pants: rnd(COL.pants), skin: rnd(COL.skins),
+      };
+    };
+    for (let tries = 0; list.length < target && tries < 20; tries++) { const p = spawn(); if (p) list.push(p); }
+    if (list.length > target) list.length = target;
+    for (let k = 0; k < list.length; k++) {
+      let p = list[k], ia = W.id.get(p.a), ib = W.id.get(p.b);
+      if (ia == null || ib == null) { p = list[k] = spawn(); if (!p) { list.splice(k--, 1); continue; } ia = W.id.get(p.a); ib = W.id.get(p.b); }
+      if (p.waiting && pedGreen(p.waiting)) p.waiting = null;
+      let A = W.nodes[ia], B = W.nodes[ib];
+      if (!p.waiting) p.t += dt * p.speed / (Math.hypot(B.x - A.x, B.z - A.z) || .01);
+      if (p.t >= 1) {
+        // a ajuns într-un punct: alege încotro merge mai departe (de obicei pe trotuar, uneori traversează)
+        p.t = 0;
+        let opts = W.adj[ib].filter(e => e.to !== ia);
+        if (!opts.length) opts = W.adj[ib];
+        const walk = opts.filter(e => !e.cross);
+        if (walk.length && Math.random() < .65) opts = walk;
+        const e = opts[Math.random() * opts.length | 0];
+        p.a = p.b; p.b = W.nodes[e.to].key; p.cross = e.cross;
+        p.waiting = e.cross?.signal && !pedGreen(e.cross.signal) ? e.cross.signal : null;
+        ia = ib; ib = e.to; A = W.nodes[ia]; B = W.nodes[ib];
+      }
+      p.x = A.x + (B.x - A.x) * p.t;
+      p.z = A.z + (B.z - A.z) * p.t;
+      if (B.x !== A.x || B.z !== A.z) {
+        let d = Math.atan2(B.x - A.x, B.z - A.z) - p.yaw;
+        d = Math.atan2(Math.sin(d), Math.cos(d));
+        p.yaw += d * Math.min(1, dt * 8);
+      }
+    }
+  }
+
+  updateTraffic(dt, cars, people) {
+    const rnd = arr => pick(arr, Math.random() * 1000 | 0), key = ([x, z]) => z * N + x;
+    // tipul mașinii se alege după cât de des apare (autoturismele cel mai des, ambulanțele cel mai rar)
+    const kinds = this.carKinds, total = kinds.reduce((s, k) => s + k.weight, 0);
+    const pickModel = () => { let r = Math.random() * total, j = 0; while (r >= kinds[j].weight) r -= kinds[j++].weight; return j; };
+    // semafoarele: un ciclu de 10 unități de timp de joc (se oprește la pauză):
+    // 0–5.5 verde pentru mașini, 5.5–6.5 galben, 6.5–10 roșu (verde pentru pietoni)
+    this.trafficClock += dt;
+    const phase = s => (this.trafficClock + s.off) % 10;
+    const light = s => { const t = phase(s); return t < 5.5 ? 'green' : t < 6.5 ? 'yellow' : 'red'; };
+    // zebrele pe care traversează cineva chiar acum (pătrățel + strada de pe care vin mașinile):
+    // opresc doar mașinile care intră în intersecție pe strada aceea
+    const armCode = (dx, dz) => (dx + 1) * 3 + dz + 1;
+    const busy = new Set(this.people.filter(p => p.cross?.arm && !p.waiting).map(p => p.cross.tile * 10 + armCode(...p.cross.arm)));
+    const carStops = c => {
+      if (c.t < .4 || c.t > .7) return false; // a trecut deja de linia de oprire
+      const s = this.signalAt.get(key(c.to));
+      return (s && light(s) !== 'green') || busy.has(key(c.to) * 10 + armCode(c.from[0] - c.to[0], c.from[1] - c.to[1]));
+    };
+    // mașinile țin distanță: dacă au o mașină în față, pe aceeași bandă și prea aproape, așteaptă (stau la rând)
+    const grid = new Map(), cellKey = (x, z) => Math.floor(x) * 1000 + Math.floor(z);
+    for (const c of this.cars) {
+      if (c.x == null) continue;
+      const k = cellKey(c.x, c.z);
+      if (!grid.has(k)) grid.set(k, []);
+      grid.get(k).push(c);
+    }
+    const GAP = .5; // distanța minimă dintre două mașini, din centru în centru (o mașină are cam .4)
+    const tooClose = c => {
+      if (c.x == null) return false;
+      const hx = Math.sin(c.yaw), hz = Math.cos(c.yaw), gx = Math.floor(c.x), gz = Math.floor(c.z);
+      for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) {
+        for (const o of grid.get((gx + a) * 1000 + gz + b) || []) {
+          if (o === c) continue;
+          const dx = o.x - c.x, dz = o.z - c.z;
+          const ahead = dx * hx + dz * hz, side = Math.abs(dx * hz - dz * hx);
+          if (ahead > .01 && ahead < GAP && side < .13) return true; // pe aceeași bandă, în față
+          if (ahead > .01 && dx * dx + dz * dz < .28 * .28) {
+            // foarte aproape, în viraj sau în intersecție; dacă și cealaltă mașină ne are în față, trece cea cu numărul mai mic
+            const theyWait = -(dx * Math.sin(o.yaw) + dz * Math.cos(o.yaw)) > .01;
+            if (!theyWait || c.id > o.id) return true;
+          }
+        }
+      }
+      return false;
+    };
+    // nu mai multe mașini decât încap pe drumuri, ca să nu se blocheze traficul
+    this.moveAlong(this.cars, dt, Math.min(MAX_CARS, cars, Math.floor((this.roads?.length || 0) * 1.2)),
+      () => { const model = pickModel(); return { id: this.carId = (this.carId || 0) + 1, speed: .9 + Math.random() * .7, model, color: kinds[model].fixed ?? rnd(COL.car) }; },
+      () => .15,
+      { hold: c => carStops(c) || tooClose(c) });
+    this.updatePeople(dt, Math.min(MAX_PEOPLE, people), light, phase);
+    // becurile: cel aprins strălucește, celelalte sunt stinse
+    const sp = this.signalPool;
+    sp.n = 0;
+    const bulb = (x, y, z, size, hex) => { this.m.compose(this.v.set(x, y, z), this.q.identity(), this.s.set(size, size, size)); sp.add(this.m, this.c.setHex(hex)); };
+    for (const s of this.signals) {
+      const l = light(s);
+      for (const [x, z] of s.poles) {
+        bulb(x, .41, z, .042, l === 'red' ? 0xff2a1f : 0x4a1210);
+        bulb(x, .365, z, .042, l === 'yellow' ? 0xffc400 : 0x4a3a08);
+        bulb(x, .32, z, .042, l === 'green' ? 0x2bff5a : 0x0e3a18);
+        bulb(x, .19, z, .034, l === 'red' ? 0x2bff5a : 0xff2a1f); // pentru pietoni: verde când mașinile au roșu
+      }
+    }
+    sp.commit();
     const all = [...this.carModels, this.personLayers].flat();
     for (const pool of all) pool.n = 0;
     for (const c of this.cars) this.draw(this.carModels[c.model], c, 0, [c.color, null]);

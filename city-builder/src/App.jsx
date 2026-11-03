@@ -295,6 +295,18 @@ function InstallHelp({ onClose }) {
   );
 }
 
+// ghidul complet al jocului, în PDF (din folderul public/)
+const GUIDE = './Orasul-Meu-Ghid.pdf';
+
+function GuideLink() {
+  return (
+    <a className="guide-btn" href={GUIDE} target="_blank" rel="noopener">
+      <span>📖</span>
+      <span><b>Ghidul jocului</b><small>Tot despre joc, cu imagini (PDF, 11 pagini)</small></span>
+    </a>
+  );
+}
+
 function Menu({ g, onClose, onInstall }) {
   return (
     <Modal title="Meniu" onClose={onClose}>
@@ -306,6 +318,7 @@ function Menu({ g, onClose, onInstall }) {
           if (confirm('Sigur începi un oraș nou? Orașul de acum se pierde.')) { g.newCity(); onClose(); }
         }}>Oraș nou</button>
       </div>
+      <GuideLink />
       <h3>Controale</h3>
       <ul className="help">
         <li><b>Mouse:</b> click stânga construiește (trage pentru drumuri și zone), click dreapta + tragere mută harta, rotița = zoom, Q / E rotesc.</li>
@@ -331,6 +344,7 @@ function Welcome({ onStart, onInstall }) {
       <p className="muted">În 📊 Buget vezi ce tip de zonă își doresc oamenii acum.</p>
       <button className="primary wide" onClick={onStart}>Să începem!</button>
       <div className="center"><InstallButton onHelp={onInstall} /></div>
+      <p className="center"><a className="guide-link" href={GUIDE} target="_blank" rel="noopener">📖 Citește ghidul jocului (PDF)</a></p>
     </Modal>
   );
 }
