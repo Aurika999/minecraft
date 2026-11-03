@@ -45,15 +45,14 @@ button { font: inherit; color: inherit; cursor: pointer; border: 0; background: 
 .icon:hover, .tool:hover { filter: brightness(.96); }
 
 /* cererea R C I */
-.demand {
-  position: fixed; left: calc(10px + env(safe-area-inset-left, 0px)); top: 96px; display: flex; gap: 6px; padding: 8px 10px;
-  background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow);
-}
-.dbar { display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 12px; }
-.track { position: relative; width: 12px; height: 64px; background: rgba(0, 0, 0, .08); border-radius: 6px; overflow: hidden; }
-.track::after { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 1px; background: rgba(0, 0, 0, .3); }
-.fill { position: absolute; left: 0; right: 0; bottom: 50%; border-radius: 3px; }
-.fill.neg { bottom: auto; top: 50%; opacity: .45; }
+.demand { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--line); }
+.demand h3 { margin: 0 0 8px; font-size: 16px; }
+.dbar { display: grid; grid-template-columns: 110px 1fr 64px; align-items: center; gap: 8px; font-size: 14px; margin: 6px 0; }
+.dbar b { font-size: 13px; text-align: right; }
+.track { position: relative; height: 12px; background: rgba(0, 0, 0, .08); border-radius: 6px; overflow: hidden; }
+.track::after { content: ""; position: absolute; top: 0; bottom: 0; left: 50%; width: 2px; background: rgba(0, 0, 0, .3); }
+.fill { position: absolute; top: 0; bottom: 0; left: 50%; border-radius: 3px; }
+.fill.neg { left: auto; right: 50%; opacity: .45; }
 .fill.R { background: var(--R); } .fill.C { background: var(--C); } .fill.I { background: var(--I); }
 
 /* mesaje */
@@ -88,9 +87,10 @@ button { font: inherit; color: inherit; cursor: pointer; border: 0; background: 
 
 /* butoane hartă */
 .mapbtns {
-  position: fixed; right: calc(10px + env(safe-area-inset-right, 0px)); bottom: calc(150px + env(safe-area-inset-bottom, 0px));
+  position: fixed; right: calc(10px + env(safe-area-inset-right, 0px)); bottom: calc(176px + env(safe-area-inset-bottom, 0px));
   display: grid; grid-template-columns: repeat(2, 38px); gap: 6px;
 }
+.mapbtns.low { bottom: calc(76px + env(safe-area-inset-bottom, 0px)); }
 
 /* bara de unelte */
 .toolbar {
@@ -101,10 +101,23 @@ button { font: inherit; color: inherit; cursor: pointer; border: 0; background: 
 .toolbar > * { pointer-events: auto; }
 .tool-help { max-width: min(640px, 100%); background: rgba(31, 42, 55, .85); color: #fff; padding: 6px 12px; border-radius: 10px; font-size: 13px; text-align: center; }
 .cost { font-weight: 700; color: #b9f6ca; } .cost.neg { color: #ffb4a9; }
-.tools {
-  display: flex; gap: 6px; max-width: 100%; overflow-x: auto; padding: 6px; background: var(--card); border-radius: 16px; box-shadow: var(--shadow);
-  scrollbar-width: thin; touch-action: pan-x;
+.build-btn {
+  padding: 12px 26px; border-radius: 999px; background: var(--accent); color: #fff; font-weight: 800; font-size: 17px;
+  box-shadow: 0 4px 0 #1f5fb8, var(--shadow);
 }
+.build-btn:active { transform: translateY(2px); box-shadow: 0 2px 0 #1f5fb8; }
+.mini-bar {
+  display: flex; align-items: center; gap: 8px; max-width: min(760px, 100%); padding: 6px 6px 6px 12px;
+  background: rgba(31, 42, 55, .9); color: #fff; border-radius: 14px; box-shadow: var(--shadow);
+}
+.mini-tool { white-space: nowrap; font-size: 15px; }
+.mini-help { flex: 1; font-size: 13px; opacity: .9; }
+.mini-btn { flex: 0 0 auto; padding: 7px 12px; border-radius: 10px; background: rgba(255, 255, 255, .16); color: inherit; font-weight: 700; font-size: 14px; white-space: nowrap; }
+.mini-btn.done { background: var(--neg); color: #fff; }
+.tools-panel { max-width: 100%; background: var(--card); border-radius: 16px; box-shadow: var(--shadow); padding: 6px; }
+.tools-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 2px 4px 6px 8px; }
+.tools-head .mini-btn { background: rgba(0, 0, 0, .07); }
+.tools { display: flex; gap: 6px; max-width: 100%; overflow-x: auto; scrollbar-width: thin; touch-action: pan-x; }
 .tool { flex: 0 0 auto; width: 72px; padding: 6px 2px; border-radius: 10px; display: flex; flex-direction: column; align-items: center; gap: 1px; }
 .tool.on { background: var(--accent); color: #fff; }
 .ti { font-size: 24px; line-height: 1.1; }
@@ -143,16 +156,15 @@ button { font: inherit; color: inherit; cursor: pointer; border: 0; background: 
 @media (max-width: 640px) {
   .chip { padding: 5px 8px; font-size: 13px; }
   .chip.date { display: none; }
-  .demand { top: auto; bottom: calc(150px + env(safe-area-inset-bottom, 0px)); }
   .messages { top: 92px; width: calc(100vw - 20px); }
   .info { top: auto; bottom: calc(150px + env(safe-area-inset-bottom, 0px)); left: 50%; right: auto; transform: translateX(-50%); width: min(300px, calc(100vw - 120px)); }
   .info.wide { width: calc(100vw - 20px); max-height: 52vh; overflow: auto; }
   .tool { width: 62px; }
   .ti { font-size: 21px; }
-  .tool-help { font-size: 12px; }
+  .mini-help { display: none; }
+  .mini-bar { width: 100%; justify-content: space-between; }
 }
 @media (max-height: 500px) {
-  .tool-help { display: none; }
-  .demand, .info { top: 60px; bottom: auto; }
+  .info { top: 60px; bottom: auto; }
   .mapbtns { bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 }

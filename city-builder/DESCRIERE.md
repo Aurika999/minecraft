@@ -114,7 +114,7 @@ Blocurile au nevoie de drum, curent și **neapărat apă**: fără apă nu se co
 
 ### Cererea R / C / I
 
-Barele din stânga ecranului arată ce își doresc oamenii acum:
+În fereastra 📊 **Buget**, jos, la „Ce își doresc oamenii”, barele arată ce tip de zonă se cere acum (bara spre dreapta = cerere, spre stânga = prea mult):
 
 - **R (locuințe)** crește când sunt multe locuri de muncă libere.
 - **C (comerț)** și **I (industrie)** cresc odată cu populația.
@@ -191,6 +191,7 @@ Pe drumuri circulă **mașini**, autoturisme și dubițe, cu geamuri, roți, far
 ### Cum arată orașul
 
 - **Case** cu acoperiș în două ape sau în patru ape, ușă, coș de fum, gard alb în jurul curții, alee, tufe și uneori piscină.
+- **Parcele mari:** când 4 pătrățele de locuințe alăturate (2×2) au case de nivel 1 sau 2, se unesc într-o singură parcelă mare. Pe ea stă o casă mare cu acoperiș în două ape (cu lucarne la nivelul 2), cu curte înconjurată de gard viu, alee, cutie poștală, flori, un cireș înflorit și, după caz, piscină gonflabilă cu umbrelă și șezlong, pătură de picnic cu trambulină, sau tufă tunsă ornamental cu grătar. Locuitorii se numără la fel ca înainte.
 - **Vile** cu două etaje, balcon cu coloane și aripă laterală.
 - **Blocuri** cu balcoane pe fiecare etaj, intrare cu copertină și uneori grădină pe acoperiș.
 - **Magazine** cu vitrine, copertine colorate, firmă și umbrele cu mese. **Birourile și turnurile** au fâșii de sticlă.

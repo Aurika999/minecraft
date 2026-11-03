@@ -409,7 +409,7 @@ export class CityView {
     this.pools[pool].add(this.m, this.c.setHex(color));
   }
 
-  tree(x, z, s, v, pine = false) {
+  tree(x, z, s, v, pine = false, pal = null) {
     if (pine) { // brad cu trei etaje de crengi
       this.part('cyl', x, 0, z, .06 * s, .24 * s, .06 * s, 0x6b4423);
       for (let j = 0; j < 3; j++)
@@ -417,7 +417,7 @@ export class CityView {
       return;
     }
     // foios: trunchi cu rădăcini, coroană bogată din mai multe bulgări (mai închisă jos, mai deschisă sus)
-    const dark = pick(COL.leafDark, v), mid = pick(COL.leaf, v), light = pick(COL.leafLight, v);
+    const [dark, mid, light] = pal || [pick(COL.leafDark, v), pick(COL.leaf, v), pick(COL.leafLight, v)];
     this.part('cyl', x, 0, z, .1 * s, .04 * s, .1 * s, COL.trunk);
     this.part('cyl', x, 0, z, .055 * s, .34 * s, .055 * s, COL.trunk);
     const blobs = [
@@ -425,13 +425,94 @@ export class CityView {
       [.04, .26, -.16, .3, .26, dark], [-.09, .45, -.07, .3, .26, mid], [.1, .46, .05, .28, .25, light], [0, .56, .02, .26, .22, light],
     ];
     for (const [bx, by, bz, bw, bh, c] of blobs) this.part('ball', x + bx * s, by * s, z + bz * s, bw * s, bh * s, bw * s, c);
-    if (v % 5 === 0 || v % 7 === 1) { // pom cu fructe sau cu flori
+    if (!pal && (v % 5 === 0 || v % 7 === 1)) { // pom cu fructe sau cu flori
       const fruit = v % 5 === 0 ? (v % 2 ? 0xe53935 : 0xff9800) : 0xffc1dc;
       for (let j = 0; j < 7; j++) {
         const a = j / 7 * Math.PI * 2 + v, rr = .21 + (j % 2) * .04;
         this.part('ball', x + Math.sin(a) * rr * s, (.36 + (j % 3) * .08) * s, z + Math.cos(a) * rr * s, .07 * s, .07 * s, .07 * s, fruit);
       }
     }
+  }
+
+  // caută grupuri de 2×2 pătrățele cu case (nivel 1–2) care se pot uni într-o parcelă mare
+  findBigLots(city) {
+    const lots = new Map(), ok = j => city.kind[j] === 'R' && city.level[j] >= 1 && city.level[j] <= 2 && !lots.has(j);
+    for (let z = 0; z + 1 < N; z++) for (let x = 0; x + 1 < N; x++) {
+      const ids = [z * N + x, z * N + x + 1, (z + 1) * N + x, (z + 1) * N + x + 1];
+      if (!ids.every(ok)) continue;
+      const lvl = Math.max(...ids.map(j => city.level[j]));
+      ids.forEach((j, n) => lots.set(j, { anchor: n === 0, lvl }));
+    }
+    return lots;
+  }
+
+  // parcela mare se întoarce spre drumul de pe una din cele patru laturi
+  lotFacing(city, x, z, v) {
+    const road = (a, b) => a >= 0 && b >= 0 && a < N && b < N && ROADISH.has(city.kind[b * N + a]);
+    const sides = [
+      [[x, z + 2], [x + 1, z + 2], 0], [[x + 2, z], [x + 2, z + 1], Math.PI / 2],
+      [[x, z - 1], [x + 1, z - 1], Math.PI], [[x - 1, z], [x - 1, z + 1], -Math.PI / 2],
+    ];
+    for (let j = 0; j < 4; j++) {
+      const [a, b, r] = sides[(v + j) % 4];
+      if (road(...a) || road(...b)) return r;
+    }
+    return (v % 4) * Math.PI / 2;
+  }
+
+  // casă mare pe parcelă de 2×2, cu curte: piscină, picnic, trambulină, grătar, umbrelă, cireși înfloriți
+  bigHouse(gx, gz, r, lvl, v) {
+    const cs = Math.cos(r), sn = Math.sin(r);
+    const at = (dx, dz) => [gx + dx * cs + dz * sn, gz - dx * sn + dz * cs];
+    const P = (pool, dx, y, dz, sx, sy, sz, col, rot = 0) => { const [x, z] = at(dx, dz); this.part(pool, x, y, z, sx, sy, sz, col, r + rot); };
+    const wall = pick(COL.walls, v), roof = pick(COL.roofs, v >> 2), hh = lvl >= 2 ? .62 : .42, style = v % 3;
+    // gard viu de jur împrejur, cu intrare spre stradă, și alee din dale
+    for (const q of [-1, 1]) P('box', q * .95, 0, 0, .07, .1, 1.9, COL.hedge);
+    P('box', 0, 0, -.95, 1.9, .1, .07, COL.hedge);
+    for (const q of [-1, 1]) P('box', q * .6, 0, .95, .7, .1, .07, COL.hedge);
+    P('box', 0, 0, .5, .22, .012, .9, COL.path);
+    // casa, cu acoperișul în două ape paralel cu strada
+    P('house', 0, 0, -.32, .92, hh, .6, wall);
+    P('gable', 0, hh, -.32, .7, .34, 1.04, roof, Math.PI / 2);
+    P('box', .3, hh + .08, -.42, .09, .34, .09, 0xb5533c);
+    if (lvl >= 2) for (const q of [-1, 1]) { // lucarne în acoperiș
+      P('house', q * .25, hh + .02, -.08, .16, .14, .12, wall);
+      P('gable', q * .25, hh + .16, -.08, .2, .08, .14, roof);
+    }
+    P('box', 0, 0, -.015, .15, .25, .02, 0x7a4b2e);
+    P('box', 0, .26, .05, .32, .025, .15, roof);
+    P('box', 0, 0, .06, .26, .03, .1, 0xd8d0c0);
+    [-.38, -.24, .24, .38].forEach((q, j) => P('flower', q, 0, .06, .12, .1, .12, pick(COL.flowers, v + j)));
+    // cutie poștală la poartă
+    P('cyl', .2, 0, .88, .015, .14, .015, 0x8d6e4c);
+    P('box', .2, .14, .88, .06, .05, .09, 0x3b6fd8);
+    if (style === 0) { // piscină gonflabilă și umbrelă cu șezlong
+      P('cyl', -.55, 0, .45, .4, .06, .4, 0xff8fb1);
+      P('cyl', -.55, .012, .45, .33, .055, .33, 0x6fd3f7);
+      P('cyl', .55, 0, .48, .015, .32, .015, 0xdddddd);
+      P('cone', .55, .27, .48, .42, .1, .42, 0xe85a5a);
+      P('box', .6, 0, .3, .13, .04, .28, 0xf4f4f4);
+    } else if (style === 1) { // picnic și trambulină
+      for (let a = 0; a < 3; a++) for (let b = 0; b < 3; b++)
+        P('box', -.62 + a * .1, 0, .36 + b * .1, .1, .008, .1, (a + b) % 2 ? 0xffffff : 0xe53935);
+      P('box', -.42, 0, .62, .09, .06, .07, 0xa0623a);
+      P('cyl', .55, 0, .48, .48, .1, .48, 0x2f80ed);
+      P('cyl', .55, .01, .48, .42, .095, .42, 0x2b2b2b);
+    } else { // tufă tunsă ornamental, grătar și umbrelă
+      P('cyl', -.55, 0, .5, .14, .08, .14, 0xc68a4a);
+      P('ball', -.55, .07, .5, .2, .18, .2, 0x3f9d3f);
+      P('ball', -.55, .22, .5, .14, .13, .14, 0x4caf50);
+      P('ball', -.55, .33, .5, .08, .08, .08, 0x5cbf4a);
+      for (const q of [-1, 1]) P('cyl', .6 + q * .04, 0, .45, .012, .12, .012, 0x333333);
+      P('ball', .6, .1, .45, .14, .07, .14, 0x2b2b2b);
+      P('cyl', .35, 0, .6, .015, .3, .015, 0xdddddd);
+      P('cone', .35, .26, .6, .36, .09, .36, 0x2f80ed);
+    }
+    // în spatele casei: un cireș înflorit și un copac verde
+    const [bx, bz] = at(-.72, -.78), [tx, tz] = at(.72, -.78);
+    this.tree(bx, bz, .62, v, false, [0xf48fb1, 0xffb7d5, 0xffd6e8]);
+    this.tree(tx, tz, .58, v + 1);
+    return hh + .5;
   }
 
   palm(x, z, s, v) {
@@ -449,6 +530,7 @@ export class CityView {
     this.turbines = [];
     this.ranchSpots = [];
     this.rides = { wheels: [], carousels: [], coasters: [] };
+    const bigLots = this.findBigLots(city);
     let stations = 0;
     for (let z = 0; z < N; z++) for (let x = 0; x < N; x++) {
       const i = z * N + x, t = city.terrain[i], k = city.kind[i], lvl = city.level[i], v = city.variant[i];
@@ -572,7 +654,10 @@ export class CityView {
         }
       }
       if (k === 'station') stations++;
-      const h = k && !ROADISH.has(k) && !RAILISH.has(k) ? this.building(k, lvl, v, cx, cz, i, this.facing(city, x, z, v, k === 'station' ? RAILISH : ROADISH)) : 0;
+      // 4 pătrățele de case alăturate se desenează ca o singură parcelă mare
+      const lot = bigLots.get(i);
+      const h = lot ? (lot.anchor ? this.bigHouse(cx + .5, cz + .5, this.lotFacing(city, x, z, v), lot.lvl, v) : 0)
+        : k && !ROADISH.has(k) && !RAILISH.has(k) ? this.building(k, lvl, v, cx, cz, i, this.facing(city, x, z, v, k === 'station' ? RAILISH : ROADISH)) : 0;
       // semn de avertizare deasupra zonelor cu probleme: gri = fără drum, galben = fără curent, albastru = fără apă
       if (ZONES.has(k)) {
         const warn = !city.road[i] ? 0x9e9e9e : !city.powered[i] ? 0xffd21f : !city.watered[i] && lvl >= 1 ? 0x3fa9ff : 0;

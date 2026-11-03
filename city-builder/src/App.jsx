@@ -9,6 +9,7 @@ export default function App() {
   const mountRef = useRef(null), engineRef = useRef(null);
   const [ui, setUi] = useState(null);
   const [panel, setPanel] = useState(null); // 'budget' | 'menu' | 'install' | null
+  const [toolsOpen, setToolsOpen] = useState(false);
 
   useEffect(() => {
     const e = new Engine(mountRef.current, setUi);
@@ -23,11 +24,10 @@ export default function App() {
       {ui && g && (
         <>
           <TopBar ui={ui} g={g} setPanel={setPanel} />
-          <Demand d={ui.demand} />
           <Messages list={ui.messages} />
           {ui.info && <Info info={ui.info} g={g} money={ui.money} onClose={() => g.select(null)} />}
-          <MapButtons g={g} />
-          <Toolbar ui={ui} g={g} />
+          <MapButtons g={g} low={!toolsOpen} />
+          <Toolbar ui={ui} g={g} open={toolsOpen} setOpen={setToolsOpen} />
           {panel === 'budget' && <Budget ui={ui} g={g} onClose={() => setPanel(null)} />}
           {panel === 'menu' && <Menu g={g} onClose={() => setPanel(null)} onInstall={() => setPanel('install')} />}
           {panel === 'install' && <InstallHelp onClose={() => setPanel(null)} />}
@@ -65,18 +65,23 @@ function TopBar({ ui, g, setPanel }) {
   );
 }
 
+// cererea: bara crește spre dreapta când oamenii vor acel tip de zonă, spre stânga când e prea mult din el
 function Demand({ d }) {
-  const bars = [['R', 'Locuințe'], ['C', 'Comerț'], ['I', 'Industrie']];
+  const bars = [['R', '🏠 Locuințe'], ['C', '🏬 Comerț'], ['I', '🏭 Industrie']];
+  const word = v => v > .5 ? 'mare' : v > .1 ? 'medie' : v > -.1 ? 'mică' : 'prea mult';
   return (
-    <div className="demand" title="Cererea pentru fiecare tip de zonă">
+    <div className="demand">
+      <h3>Ce își doresc oamenii</h3>
       {bars.map(([k, label]) => (
         <div key={k} className="dbar" aria-label={`Cerere ${label}: ${Math.round(d[k] * 100)}%`}>
+          <span>{label}</span>
           <div className="track">
-            <i className={'fill ' + k + (d[k] < 0 ? ' neg' : '')} style={{ height: `${Math.abs(d[k]) * 50}%` }} />
+            <i className={'fill ' + k + (d[k] < 0 ? ' neg' : '')} style={{ width: `${Math.abs(d[k]) * 50}%` }} />
           </div>
-          <b>{k}</b>
+          <b className={d[k] < -.1 ? 'neg' : ''}>{word(d[k])}</b>
         </div>
       ))}
+      <p className="muted">Construiește zona cu bara cea mai lungă spre dreapta: ea crește cel mai repede.</p>
     </div>
   );
 }
@@ -149,9 +154,9 @@ function Meter({ label, v, good }) {
   );
 }
 
-function MapButtons({ g }) {
+function MapButtons({ g, low }) {
   return (
-    <div className="mapbtns">
+    <div className={'mapbtns' + (low ? ' low' : '')}>
       <button className="icon" onClick={() => g.rotate(-1)} title="Rotește stânga (Q)" aria-label="Rotește stânga">⟲</button>
       <button className="icon" onClick={() => g.rotate(1)} title="Rotește dreapta (E)" aria-label="Rotește dreapta">⟳</button>
       <button className="icon" onClick={() => g.zoom(1.25)} title="Apropie" aria-label="Apropie">＋</button>
@@ -160,22 +165,45 @@ function MapButtons({ g }) {
   );
 }
 
-function Toolbar({ ui, g }) {
-  const t = TOOL[ui.tool];
+// bara de jos e strânsă: se deschide doar când vrei să construiești, apoi se strânge iar după ce alegi unealta
+function Toolbar({ ui, g, open, setOpen }) {
+  const t = TOOL[ui.tool], building = ui.tool !== 'inspect';
+  const choose = id => { g.setTool(id); setOpen(false); };
+  if (!open) {
+    return (
+      <footer className="toolbar">
+        {building ? (
+          <div className="mini-bar">
+            <span className="mini-tool">{t.icon} <b>{t.name}</b></span>
+            <span className="mini-help">
+              {t.help}
+              {ui.previewCost > 0 && <span className={'cost' + (ui.previewCost > ui.money ? ' neg' : '')}> · Cost: {fmt(ui.previewCost)} $</span>}
+            </span>
+            <button className="mini-btn" onClick={() => setOpen(true)}>🔨 Schimbă</button>
+            <button className="mini-btn done" onClick={() => g.setTool('inspect')} title="Termină de construit (Esc)">✕ Gata</button>
+          </div>
+        ) : (
+          <button className="build-btn" onClick={() => setOpen(true)}>🔨 Construiește</button>
+        )}
+      </footer>
+    );
+  }
   return (
     <footer className="toolbar">
-      <div className="tool-help">
-        <b>{t.icon} {t.name}</b> {t.help}
-        {ui.previewCost > 0 && <span className={'cost' + (ui.previewCost > ui.money ? ' neg' : '')}> · Cost: {fmt(ui.previewCost)} $</span>}
-      </div>
-      <div className="tools">
-        {TOOLS.map(tool => (
-          <button key={tool.id} className={'tool' + (ui.tool === tool.id ? ' on' : '')} onClick={() => g.setTool(tool.id)} title={tool.help}>
-            <span className="ti">{tool.icon}</span>
-            <span className="tn">{tool.name}</span>
-            {tool.cost > 0 && <span className="tc">{fmt(tool.cost)} $</span>}
-          </button>
-        ))}
+      <div className="tools-panel">
+        <div className="tools-head">
+          <b>Ce vrei să construiești?</b>
+          <button className="mini-btn" onClick={() => setOpen(false)}>▼ Ascunde</button>
+        </div>
+        <div className="tools">
+          {TOOLS.map(tool => (
+            <button key={tool.id} className={'tool' + (ui.tool === tool.id ? ' on' : '')} onClick={() => choose(tool.id)} title={tool.help}>
+              <span className="ti">{tool.icon}</span>
+              <span className="tn">{tool.name}</span>
+              {tool.cost > 0 && <span className="tc">{fmt(tool.cost)} $</span>}
+            </button>
+          ))}
+        </div>
       </div>
     </footer>
   );
@@ -219,6 +247,7 @@ function Budget({ ui, g, onClose }) {
         <input type="range" min="0" max="20" value={ui.tax} onChange={e => g.setTax(+e.target.value)} />
       </label>
       <p className="muted">Taxe mari aduc bani, dar oamenii și firmele vin mai greu. 9% e echilibrat.</p>
+      <Demand d={ui.demand} />
     </Modal>
   );
 }
@@ -299,7 +328,7 @@ function Welcome({ onStart, onInstall }) {
         <li>🌷 🥕 Fă curți cu flori și plantează legume: legumele coapte se vând.</li>
         <li>🌳 👮 🚒 🏫 Parcurile și serviciile fac oamenii mulțumiți și clădirile mai înalte.</li>
       </ol>
-      <p className="muted">Barele R C I din stânga arată ce tip de zonă își doresc oamenii acum.</p>
+      <p className="muted">În 📊 Buget vezi ce tip de zonă își doresc oamenii acum.</p>
       <button className="primary wide" onClick={onStart}>Să începem!</button>
       <div className="center"><InstallButton onHelp={onInstall} /></div>
     </Modal>
