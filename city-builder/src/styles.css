@@ -160,6 +160,40 @@ button { font: inherit; color: inherit; cursor: pointer; border: 0; background: 
 .guide-btn small { color: var(--muted); font-size: 12.5px; }
 .guide-btn:hover { background: #e2effb; }
 .guide-link { color: var(--accent); font-weight: 600; text-decoration: none; }
+
+/* prieteni și vizite */
+.badge-host { position: relative; }
+.badge { position: absolute; top: -3px; right: -3px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--neg); color: #fff; font-size: 11px; font-weight: 800; display: grid; place-items: center; }
+.visit-banner {
+  position: fixed; top: calc(60px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); z-index: 5;
+  display: flex; align-items: center; gap: 8px; padding: 6px 6px 6px 14px; border-radius: 14px;
+  background: linear-gradient(90deg, #2e9d55, #1e88e5); color: #fff; box-shadow: var(--shadow); white-space: nowrap; font-size: 15px;
+}
+.visit-banner .mini-btn.home { background: #fff; color: var(--ink); }
+.visit-banner .mini-btn.like:disabled { opacity: 1; }
+.mini-btn.plain { background: rgba(0, 0, 0, .07); color: var(--ink); }
+.tabs { display: flex; gap: 4px; margin: 8px 0 12px; background: rgba(0, 0, 0, .05); padding: 4px; border-radius: 12px; }
+.tabs button { flex: 1; padding: 7px 4px; border-radius: 9px; font-size: 13.5px; font-weight: 700; color: var(--muted); }
+.tabs button.on { background: #fff; color: var(--ink); box-shadow: 0 1px 4px rgba(0, 0, 0, .12); }
+.friends { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
+.friends li { display: flex; align-items: center; gap: 10px; padding: 8px; border-radius: 12px; background: rgba(0, 0, 0, .035); }
+.avatar { flex: 0 0 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; background: var(--accent); color: #fff; font-weight: 800; font-size: 17px; }
+.who { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.who b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.who small, .primary small { color: var(--muted); font-size: 12px; }
+.primary.small { padding: 7px 12px; display: flex; flex-direction: column; align-items: center; line-height: 1.15; font-size: 14px; }
+.primary.small small { color: #d8e8ff; font-weight: 600; }
+.primary:disabled { opacity: .5; cursor: not-allowed; }
+.mycode { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 14px; border-radius: 12px; background: var(--soft, #eef6fd); border: 1px dashed #9cc3ee; }
+.mycode b { font-size: 24px; letter-spacing: 2px; font-family: Consolas, monospace; }
+.signin { display: grid; gap: 8px; margin: 10px 0; }
+.signin input, .field input { width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid #cfd8e3; font: inherit; }
+.field { display: grid; gap: 4px; font-size: 14px; font-weight: 600; margin-bottom: 8px; }
+.link { color: var(--accent); font-weight: 600; padding: 4px 0; }
+.okmsg { background: #e7f6ec; color: var(--pos); padding: 6px 8px; border-radius: 8px; font-size: 13px; }
+.stats-line { font-size: 13px; color: var(--muted); margin: 12px 0 4px; }
+.confirm .big { text-align: center; }
+p.center { text-align: center; }
 .install-btn:active { transform: translateY(2px); box-shadow: 0 2px 0 #5a3618; }
 
 @media (max-width: 640px) {

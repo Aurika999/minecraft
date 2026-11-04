@@ -241,6 +241,32 @@ Orașul se **salvează automat** în browser (localStorage) și se încarcă sin
 
 ---
 
+## 👥 Prieteni și vizite
+
+Butonul **👥** din bara de sus deschide panoul de prieteni.
+
+- **Cont:** intri cu Google sau cu email și parolă. Orașul se salvează și în cont, la câteva secunde după fiecare schimbare, așa că îl ai pe orice telefon sau calculator.
+- **Cod de prieten:** fiecare primar are un cod, de exemplu `MIA-4821`. La „Adaugă” îl copiezi pentru prieteni sau scrii codul lor. Prietenul primește o cerere la „Cereri” (cu un număr roșu pe 👥) și o acceptă.
+- **Vizită:** la „Prieteni” apeși **Vizitează**. Vezi prețul biletului, apoi **Plătește și intră**. Banii ies din orașul tău și intră în orașul prietenului.
+- **Ce se vede în vizită:** orașul prietenului, cu mașini, oameni, trenuri și animale, și banda „🏝️ În vizită la …”. Poți apăsa 🔍 pe pătrățele și poți da **🤍 Îmi place**. **Nu poți construi și nu poți schimba nimic:** nu există bară de unelte, buget sau meniu, iar timpul orașului stă pe loc. **🏠 Înapoi acasă** te duce în orașul tău.
+- **Biletul tău:** la „Orașul meu” îți alegi numele de primar și prețul biletului (gratis … 500 $). Când te vizitează cineva, primești banii și un mesaj 🎟️. Tot acolo vezi like-urile, vizitatorii și cât ai câștigat din bilete.
+
+**Siguranță:** regulile din `firestore.rules` lasă pe fiecare să scrie doar în orașul lui. Orașul tău îl pot vedea doar prietenii tăi. Un vizitator poate adăuga la tine doar prețul exact al biletului și un like. După ce ștergi o prietenie, celălalt nu-ți mai vede orașul.
+
+### Pornirea prietenilor (o singură dată, gratuit)
+
+Fără acești pași jocul merge ca înainte, iar 👥 spune doar că funcția nu e pornită.
+
+1. Intră pe **console.firebase.google.com** → *Adaugă proiect* (de exemplu „orasul-meu”). Google Analytics nu e necesar.
+2. *Build → Authentication → Începe*. Pornește **Google** și **Email/Parolă**.
+3. *Build → Firestore Database → Creează baza de date* (modul producție, o regiune din Europa).
+4. La *Firestore → Reguli*, lipește conținutul fișierului `firestore.rules` și apasă **Publică**.
+5. *⚙️ Setările proiectului → Aplicațiile tale → Web (</>)*: dă-i un nume și copiază blocul `firebaseConfig`.
+6. Pune blocul în `src/net/firebase-config.js`, în locul lui `null`.
+7. Când jocul e publicat pe internet (de exemplu pe GitHub Pages), adaugă adresa lui la *Authentication → Setări → Domenii autorizate*.
+
+---
+
 ## Structura codului
 
 ```

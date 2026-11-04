@@ -1,0 +1,61 @@
+rules_version = '2';
+// Regulile bazei de date pentru „Orașul Meu”. Se copiază în Firebase → Firestore Database → Reguli → Publică.
+service cloud.firestore {
+  match /databases/{db}/documents {
+    function signedIn() { return request.auth != null; }
+    function isMe(uid) { return signedIn() && request.auth.uid == uid; }
+    // „sunt prieten cu uid” = uid m-a trecut în lista lui de prieteni
+    function isFriendOf(uid) { return signedIn() && exists(/databases/$(db)/documents/users/$(uid)/friends/$(request.auth.uid)); }
+    function grew(field, max) {
+      return request.resource.data.get(field, 0) - resource.data.get(field, 0) >= 0
+          && request.resource.data.get(field, 0) - resource.data.get(field, 0) <= max;
+    }
+
+    // profilul: îl vede oricine are cont; îl schimbă doar proprietarul,
+    // iar un prieten poate doar să adauge un bilet (cel mult prețul cerut), o vizită și un like
+    match /users/{uid} {
+      allow read: if signedIn();
+      allow create, delete: if isMe(uid);
+      allow update: if isMe(uid) || (isFriendOf(uid)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['pending', 'pendingVisitors', 'likes'])
+        && grew('pending', resource.data.get('ticket', 0))
+        && grew('pendingVisitors', 1)
+        && grew('likes', 1));
+
+      // lista de prieteni: o vede și o schimbă proprietarul; celălalt prieten se poate adăuga
+      // doar dacă proprietarul i-a trimis o cerere, și se poate scoate oricând
+      match /friends/{fid} {
+        allow read: if isMe(uid);
+        allow create: if isMe(uid)
+          || (isMe(fid) && exists(/databases/$(db)/documents/friendRequests/$(uid + '_' + fid)));
+        allow delete: if isMe(uid) || isMe(fid);
+      }
+    }
+
+    // codurile de prieten: oricine cu cont poate căuta un cod; fiecare își face doar codul lui
+    match /codes/{code} {
+      allow read: if signedIn();
+      allow create: if signedIn() && request.resource.data.uid == request.auth.uid;
+    }
+
+    // orașul: îl scrie doar proprietarul; îl pot vedea doar el și prietenii lui (doar de citit)
+    match /cities/{uid} {
+      allow read: if isMe(uid) || isFriendOf(uid);
+      allow write: if isMe(uid);
+    }
+
+    // cererile de prietenie: le vede cine le trimite și cine le primește
+    match /friendRequests/{id} {
+      allow read: if signedIn() && (resource.data.to == request.auth.uid || resource.data.from == request.auth.uid);
+      allow create: if signedIn() && request.resource.data.from == request.auth.uid
+        && id == request.auth.uid + '_' + request.resource.data.to;
+      allow delete: if signedIn() && (resource.data.to == request.auth.uid || resource.data.from == request.auth.uid);
+    }
+
+    // jurnalul vizitelor: îl scrie vizitatorul, îl citește gazda
+    match /visits/{id} {
+      allow create: if signedIn() && request.resource.data.visitor == request.auth.uid && isFriendOf(request.resource.data.host);
+      allow read: if signedIn() && resource.data.host == request.auth.uid;
+    }
+  }
+}

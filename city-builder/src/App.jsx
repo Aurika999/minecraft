@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Engine } from './game/engine.js';
 import { TOOLS, TOOL, ANIMALS } from './game/config.js';
 import { useInstall, isIOS, isSecure } from './install.js';
+import { useSocial, SocialButton, SocialPanel, VisitBanner } from './Social.jsx';
 
 const fmt = n => Math.round(n).toLocaleString('ro-RO');
 
@@ -18,16 +19,20 @@ export default function App() {
   }, []);
 
   const g = engineRef.current;
+  const social = useSocial(g);
   return (
     <>
       <div ref={mountRef} className="view" />
       {ui && g && (
         <>
-          <TopBar ui={ui} g={g} setPanel={setPanel} />
+          <TopBar ui={ui} g={g} setPanel={setPanel} social={social} />
+          {ui.readOnly && <VisitBanner ui={ui} g={g} />}
           <Messages list={ui.messages} />
-          {ui.info && <Info info={ui.info} g={g} money={ui.money} onClose={() => g.select(null)} />}
-          <MapButtons g={g} low={!toolsOpen} />
-          <Toolbar ui={ui} g={g} open={toolsOpen} setOpen={setToolsOpen} />
+          {ui.info && <Info info={ui.info} g={g} money={ui.money} readOnly={ui.readOnly} onClose={() => g.select(null)} />}
+          <MapButtons g={g} low={!toolsOpen || ui.readOnly} />
+          {/* în vizită nu se construiește, deci nu există bară de unelte */}
+          {!ui.readOnly && <Toolbar ui={ui} g={g} open={toolsOpen} setOpen={setToolsOpen} />}
+          {panel === 'social' && <SocialPanel social={social} ui={ui} g={g} Modal={Modal} onClose={() => setPanel(null)} />}
           {panel === 'budget' && <Budget ui={ui} g={g} onClose={() => setPanel(null)} />}
           {panel === 'menu' && <Menu g={g} onClose={() => setPanel(null)} onInstall={() => setPanel('install')} />}
           {panel === 'install' && <InstallHelp onClose={() => setPanel(null)} />}
@@ -38,7 +43,7 @@ export default function App() {
   );
 }
 
-function TopBar({ ui, g, setPanel }) {
+function TopBar({ ui, g, setPanel, social }) {
   const speeds = [['⏸', 'Pauză'], ['▶', 'Normal'], ['▶▶', 'Rapid'], ['▶▶▶', 'Foarte rapid']];
   return (
     <header className="topbar">
@@ -52,14 +57,18 @@ function TopBar({ ui, g, setPanel }) {
         <span className="chip date">📅 {ui.date}</span>
       </div>
       <div className="controls">
-        <div className="speeds" role="group" aria-label="Viteza timpului">
-          {speeds.map(([icon, label], s) => (
-            <button key={s} className={ui.speed === s ? 'on' : ''} onClick={() => g.setSpeed(s)} title={label} aria-label={label}>{icon}</button>
-          ))}
-        </div>
+        {/* în vizită timpul și bugetul sunt ale prietenului, deci se ascund */}
+        {!ui.readOnly && (
+          <div className="speeds" role="group" aria-label="Viteza timpului">
+            {speeds.map(([icon, label], s) => (
+              <button key={s} className={ui.speed === s ? 'on' : ''} onClick={() => g.setSpeed(s)} title={label} aria-label={label}>{icon}</button>
+            ))}
+          </div>
+        )}
+        <SocialButton social={social} onClick={() => setPanel('social')} />
         <InstallButton small onHelp={() => setPanel('install')} />
-        <button className="icon" onClick={() => setPanel('budget')} title="Buget" aria-label="Buget">📊</button>
-        <button className="icon" onClick={() => setPanel('menu')} title="Meniu" aria-label="Meniu">☰</button>
+        {!ui.readOnly && <button className="icon" onClick={() => setPanel('budget')} title="Buget" aria-label="Buget">📊</button>}
+        {!ui.readOnly && <button className="icon" onClick={() => setPanel('menu')} title="Meniu" aria-label="Meniu">☰</button>}
       </div>
     </header>
   );
@@ -90,7 +99,7 @@ function Messages({ list }) {
   return <div className="messages">{list.map(m => <div key={m.id}>{m.text}</div>)}</div>;
 }
 
-function Info({ info, g, money, onClose }) {
+function Info({ info, g, money, readOnly, onClose }) {
   const yes = (v, label) => <li className={v ? 'ok' : 'bad'}>{v ? '✔' : '✖'} {label}</li>;
   return (
     <aside className={'card info' + (info.ranch != null ? ' wide' : '')}>
@@ -101,7 +110,9 @@ function Info({ info, g, money, onClose }) {
       <p className="muted">Pătrățelul ({info.x}, {info.z})</p>
       {info.level != null && <p>Nivel <b>{info.level}</b> din 3 · {info.residents != null ? `${info.residents} locuitori` : `${info.jobs} locuri de muncă`}</p>}
       {info.crop && <p>🌱 <b>{info.crop}</b> · {info.stage}</p>}
-      {info.ranch != null && <RanchPicker info={info} g={g} money={money} />}
+      {info.ranch != null && (readOnly
+        ? <p>{ANIMALS[info.ranch].icon} Aici se cresc <b>{ANIMALS[info.ranch].name.toLowerCase()}</b> ({ANIMALS[info.ranch].product}).</p>
+        : <RanchPicker info={info} g={g} money={money} />)}
       {!info.crop && info.ranch == null && <ul className="checks">
         {yes(info.road, 'Drum aproape')}
         {yes(info.powered, 'Curent electric')}

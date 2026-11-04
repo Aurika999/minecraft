@@ -60,7 +60,10 @@ export class Engine {
 
   // ---------- acțiuni din interfață ----------
 
-  setTool(id) { this.tool = id; if (id !== 'inspect') this.select(null); this.view.setPreview([]); this.emit(); }
+  setTool(id) {
+    if (this.readOnly && id !== 'inspect') return; // în vizită nu se construiește
+    this.tool = id; if (id !== 'inspect') this.select(null); this.view.setPreview([]); this.emit();
+  }
   setSpeed(s) { this.speed = s; this.emit(); }
   setTax(t) { this.city.tax = t; this.city.updateStats(); this.emit(); }
   closeWelcome() { this.welcome = false; this.emit(); }
@@ -69,6 +72,7 @@ export class Engine {
   select(t) { this.selected = t; this.view.setSelected(t); this.emit(); }
 
   setRanch(x, z, j) {
+    if (this.readOnly) return;
     const r = this.city.setAnimal(this.city.idx(x, z), j);
     if (r.error) { this.msg(r.error); return; }
     const a = ANIMALS[j];
@@ -92,8 +96,64 @@ export class Engine {
   }
 
   save() {
+    if (this.readOnly) return; // orașul vizitat nu se salvează niciodată
     try { localStorage.setItem(SAVE_KEY, JSON.stringify(this.city.toJSON())); } catch { /* spațiu plin sau mod privat */ }
+    this.onSave?.(this.city);
   }
+
+  // ---------- conturi și vizite ----------
+
+  // pune pe hartă alt oraș (de exemplu cel din cont, la intrare)
+  show(city) {
+    this.city = city;
+    this.selected = null;
+    this.view.setSelected(null);
+    this.view.cars = [];
+    this.view.people = [];
+    this.view.target.set(0, 0, 0);
+    this.view.updateCamera();
+    this.view.rebuild(city);
+    this.builtVersion = city.version;
+    this.emit();
+  }
+
+  // înlocuiește orașul de acasă (de exemplu cu cel salvat în cont)
+  replaceCity(json) {
+    const c = City.fromJSON(json);
+    if (!c) return false;
+    if (this.readOnly) this.home = c; else { this.welcome = false; this.show(c); this.save(); }
+    return true;
+  }
+
+  // intră în vizită: orașul prietenului se vede, dar nu se poate schimba nimic
+  visit(json, info) {
+    const c = City.fromJSON(json);
+    if (!c) return false;
+    if (!this.readOnly) { this.save(); this.home = this.city; }
+    this.readOnly = true;
+    this.visiting = info;
+    this.tool = 'inspect';
+    this.welcome = false;
+    this.show(c);
+    return true;
+  }
+
+  goHome() {
+    if (!this.readOnly) return;
+    this.readOnly = false;
+    this.visiting = null;
+    this.show(this.home);
+    this.home = null;
+  }
+
+  // bani primiți sau plătiți din orașul de acasă (bilete, încasări), chiar și în timpul unei vizite
+  addMoney(amount) {
+    (this.readOnly ? this.home : this.city).money += amount;
+    if (!this.readOnly) this.save();
+    this.emit();
+  }
+
+  homeCity() { return this.readOnly ? this.home : this.city; }
 
   msg(text) {
     const now = performance.now();
@@ -195,6 +255,7 @@ export class Engine {
   }
 
   commit(a, b) {
+    if (this.readOnly) return;
     const r = this.city.apply(this.tool, this.tilesFor(a, b));
     if (r.error) { this.msg(r.error); return; }
     this.view.rebuild(this.city);
@@ -253,7 +314,8 @@ export class Engine {
     const dt = Math.min(.1, (t - this.last) / 1000);
     this.last = t;
     const c = this.city, len = DAY_SECONDS[this.speed];
-    if (!this.welcome) {
+    // în vizită timpul orașului stă pe loc (se vede cum l-a lăsat prietenul), dar viața de pe străzi merge
+    if (!this.welcome && !this.readOnly) {
       this.acc += dt;
       for (let n = 0; this.acc >= len && n < 5; n++) { this.acc -= len; c.stepDay(); }
       if (this.acc > len) this.acc = 0;
@@ -265,7 +327,7 @@ export class Engine {
       this.builtVersion = c.version;
       this.lastRebuild = t;
     }
-    this.view.updateTraffic(dt * Math.min(this.speed, 2), Math.floor(c.stats.pop / 10), Math.floor(c.stats.pop / 8));
+    this.view.updateTraffic(dt * (this.readOnly ? 1 : Math.min(this.speed, 2)), Math.floor(c.stats.pop / 10), Math.floor(c.stats.pop / 8));
     this.view.render(dt);
     if (t - this.lastEmit > 250) this.emit();
   };
@@ -278,6 +340,7 @@ export class Engine {
       money: c.money, pop: s.pop, jobs: s.jobsC + s.jobsI, happiness: s.happiness, date: c.dateText(),
       demand: { ...c.demand }, tax: c.tax, lastMonth: c.lastMonth, speed: this.speed, tool: this.tool,
       previewCost: this.previewCost || 0, welcome: this.welcome, messages: [...this.messages],
+      readOnly: !!this.readOnly, visiting: this.visiting || null, homeMoney: this.homeCity().money,
       info: this.selected ? c.tileInfo(this.selected.x, this.selected.z) : null,
       buildings: c.kind.reduce((n, k, i) => n + (k && !['road', 'rail', 'crossing'].includes(k) && (!ZONES.has(k) || c.level[i]) ? 1 : 0), 0),
     });
