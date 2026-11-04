@@ -48,9 +48,14 @@ function TopBar({ ui, g, setPanel, social }) {
   return (
     <header className="topbar">
       <div className="stats">
-        <button className={'chip money' + (ui.money < 0 ? ' neg' : '')} onClick={() => setPanel('budget')} title="Buget">
-          💰 {fmt(ui.money)} $
-        </button>
+        {/* în vizită banii și bugetul prietenului rămân secrete: se văd doar banii tăi */}
+        {ui.readOnly ? (
+          <span className="chip" title="Banii din orașul tău">💰 {fmt(ui.homeMoney)} $ <small className="mine">ai tu</small></span>
+        ) : (
+          <button className={'chip money' + (ui.money < 0 ? ' neg' : '')} onClick={() => setPanel('budget')} title="Buget">
+            💰 {fmt(ui.money)} $
+          </button>
+        )}
         <span className="chip" title="Populație">👥 {fmt(ui.pop)}</span>
         <span className="chip" title="Locuri de muncă">💼 {fmt(ui.jobs)}</span>
         <span className="chip" title="Mulțumire">{ui.happiness > .66 ? '😊' : ui.happiness > .4 ? '😐' : '😟'} {Math.round(ui.happiness * 100)}%</span>

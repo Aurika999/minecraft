@@ -44,6 +44,11 @@ service cloud.firestore {
       allow write: if isMe(uid);
     }
 
+    // bugetul (bani, taxe, raportul lunii): doar proprietarul, nici prietenii nu-l văd
+    match /private/{uid} {
+      allow read, write: if isMe(uid);
+    }
+
     // cererile de prietenie: le vede cine le trimite și cine le primește
     match /friendRequests/{id} {
       allow read: if signedIn() && (resource.data.to == request.auth.uid || resource.data.from == request.auth.uid);

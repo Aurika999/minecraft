@@ -24,7 +24,7 @@ export function useSocial(g) {
     (async () => {
       try {
         await S.ensureProfile(user);
-        const cloud = await S.loadCity(user.uid);
+        const cloud = await S.loadCity(user.uid, true);
         if (!alive) return;
         if (cloud) { g.replaceCity(cloud); g.msg('☁️ Orașul tău din cont a fost încărcat.'); }
         else { await S.saveCity(user.uid, g.homeCity()); g.msg('☁️ Orașul tău a fost salvat în cont.'); }
@@ -127,10 +127,10 @@ function Friends({ social, ui, g, Modal, onClose }) {
   const run = async (f, done) => { setErr(''); setOk(''); setBusy(true); try { await f(); if (done) setOk(done); } catch (e) { setErr(S.niceError(e)); } setBusy(false); };
   if (!profile) return <Modal title="👥 Prieteni" onClose={onClose}><p className="muted">Se încarcă profilul…</p></Modal>;
 
-  const tabs = [['friends', `Prieteni (${friends.length})`], ['add', 'Adaugă'], ['requests', `Cereri${requests.length ? ` (${requests.length})` : ''}`], ['me', 'Orașul meu']];
+  const tabs = [['friends', `Prieteni (${friends.length})`], ['add', 'Adaugă'], ['requests', `Cereri${requests.length ? ` (${requests.length})` : ''}`], ['visitors', 'Vizitatori'], ['me', 'Orașul meu']];
 
   const visit = f => run(async () => {
-    const { price, city } = await S.visitFriend(user.uid, f.uid);
+    const { price, city } = await S.visitFriend(user.uid, f.uid, profile.name);
     if (price) g.addMoney(-price);
     g.visit(city, { uid: f.uid, name: f.name });
     g.msg(price ? `🎟️ Ai plătit ${fmt(price)} $ bilet. Bine ai venit în orașul lui ${f.name}!` : `🏝️ Bine ai venit în orașul lui ${f.name}!`);
@@ -160,7 +160,7 @@ function Friends({ social, ui, g, Modal, onClose }) {
           {friends.map(f => (
             <li key={f.uid}>
               <span className="avatar">{(f.name || '?')[0].toUpperCase()}</span>
-              <span className="who"><b>{f.name}</b><small>👥 {fmt(f.stats?.pop)} · 💰 {fmt(f.stats?.money)} $ · ❤️ {fmt(f.likes)}</small></span>
+              <span className="who"><b>{f.name}</b><small>👥 {fmt(f.stats?.pop)} locuitori · ❤️ {fmt(f.likes)}</small></span>
               <button className="primary small" disabled={busy || ui.visiting?.uid === f.uid} onClick={() => setConfirm(f)}>
                 Vizitează<small>{f.ticket ? `🎟️ ${fmt(f.ticket)} $` : 'gratis'}</small>
               </button>
@@ -194,11 +194,43 @@ function Friends({ social, ui, g, Modal, onClose }) {
         </ul>
       ) : <p className="muted">Nu ai cereri noi.</p>)}
 
+      {tab === 'visitors' && <Visitors uid={user.uid} />}
+
       {tab === 'me' && <MyCity social={social} busy={busy} run={run} />}
 
       {ok && <p className="okmsg">✓ {ok}</p>}
       {err && <p className="problem">⚠ {err}</p>}
     </Modal>
+  );
+}
+
+// lista celor care m-au vizitat: cine, cât a plătit și când
+function Visitors({ uid }) {
+  const [list, setList] = useState(null);
+  useEffect(() => S.watchVisits(uid, setList), [uid]);
+  if (!list) return <p className="muted">Se încarcă…</p>;
+  if (!list.length) return <p className="muted">Încă nu te-a vizitat nimeni. Dă-le prietenilor codul tău și invită-i!</p>;
+  const total = list.reduce((s, v) => s + (v.price || 0), 0);
+  const when = d => {
+    const day = new Date(d).setHours(0, 0, 0, 0), today = new Date().setHours(0, 0, 0, 0);
+    const hour = d.toLocaleTimeString('ro-RO', { hour: '2-digit', minute: '2-digit' });
+    if (day === today) return `azi, la ${hour}`;
+    if (today - day === 864e5) return `ieri, la ${hour}`;
+    return `${d.toLocaleDateString('ro-RO', { day: 'numeric', month: 'long', year: 'numeric' })}, la ${hour}`;
+  };
+  return (
+    <>
+      <p className="stats-line visit-total">🎟️ <b>{list.length}</b> {list.length === 1 ? 'vizită' : 'vizite'} · 💰 <b>{fmt(total)} $</b> din bilete</p>
+      <ul className="friends visits">
+        {list.map(v => (
+          <li key={v.id}>
+            <span className="avatar">{(v.visitorName || '?')[0].toUpperCase()}</span>
+            <span className="who"><b>{v.visitorName}</b><small>🕒 {when(v.time)}</small></span>
+            <span className={'paid' + (v.price ? '' : ' free')}>{v.price ? `+${fmt(v.price)} $` : 'gratis'}</span>
+          </li>
+        ))}
+      </ul>
+    </>
   );
 }
 

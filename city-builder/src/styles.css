@@ -193,6 +193,12 @@ button { font: inherit; color: inherit; cursor: pointer; border: 0; background: 
 .okmsg { background: #e7f6ec; color: var(--pos); padding: 6px 8px; border-radius: 8px; font-size: 13px; }
 .stats-line { font-size: 13px; color: var(--muted); margin: 12px 0 4px; }
 .confirm .big { text-align: center; }
+.visits { max-height: 46vh; overflow: auto; }
+.chip .mine { font-weight: 600; font-size: 11px; opacity: .65; }
+.paid { font-weight: 800; color: var(--pos); white-space: nowrap; }
+.paid.free { color: var(--muted); font-weight: 600; }
+.visit-total { margin: 0 0 10px; }
+.tabs button { font-size: 12.5px; }
 p.center { text-align: center; }
 .install-btn:active { transform: translateY(2px); box-shadow: 0 2px 0 #5a3618; }
 

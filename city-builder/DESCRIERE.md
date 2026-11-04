@@ -248,10 +248,11 @@ Butonul **👥** din bara de sus deschide panoul de prieteni.
 - **Cont:** intri cu Google sau cu email și parolă. Orașul se salvează și în cont, la câteva secunde după fiecare schimbare, așa că îl ai pe orice telefon sau calculator.
 - **Cod de prieten:** fiecare primar are un cod, de exemplu `MIA-4821`. La „Adaugă” îl copiezi pentru prieteni sau scrii codul lor. Prietenul primește o cerere la „Cereri” (cu un număr roșu pe 👥) și o acceptă.
 - **Vizită:** la „Prieteni” apeși **Vizitează**. Vezi prețul biletului, apoi **Plătește și intră**. Banii ies din orașul tău și intră în orașul prietenului.
-- **Ce se vede în vizită:** orașul prietenului, cu mașini, oameni, trenuri și animale, și banda „🏝️ În vizită la …”. Poți apăsa 🔍 pe pătrățele și poți da **🤍 Îmi place**. **Nu poți construi și nu poți schimba nimic:** nu există bară de unelte, buget sau meniu, iar timpul orașului stă pe loc. **🏠 Înapoi acasă** te duce în orașul tău.
+- **Ce se vede în vizită:** orașul prietenului, cu mașini, oameni, trenuri și animale, și banda „🏝️ În vizită la …”. Poți apăsa 🔍 pe pătrățele și poți da **🤍 Îmi place**. **Bugetul prietenului rămâne secret:** sus vezi doar banii tăi („ai tu”), iar banii, taxele și raportul lunii lui nu ajung deloc la vizitator. **Nu poți construi și nu poți schimba nimic:** nu există bară de unelte, buget sau meniu, iar timpul orașului stă pe loc. **🏠 Înapoi acasă** te duce în orașul tău.
+- **Vizitatori:** lista cu toți cei care te-au vizitat, cea mai nouă vizită prima. Pentru fiecare vezi numele, cât a plătit (sau „gratis”) și când a venit („azi, la 13:03”, „ieri, la 18:20” sau data). Sus vezi totalul: câte vizite și câți bani din bilete. Lista se actualizează singură și o vezi doar tu.
 - **Biletul tău:** la „Orașul meu” îți alegi numele de primar și prețul biletului (gratis … 500 $). Când te vizitează cineva, primești banii și un mesaj 🎟️. Tot acolo vezi like-urile, vizitatorii și cât ai câștigat din bilete.
 
-**Siguranță:** regulile din `firestore.rules` lasă pe fiecare să scrie doar în orașul lui. Orașul tău îl pot vedea doar prietenii tăi. Un vizitator poate adăuga la tine doar prețul exact al biletului și un like. După ce ștergi o prietenie, celălalt nu-ți mai vede orașul.
+**Siguranță:** regulile din `firestore.rules` lasă pe fiecare să scrie doar în orașul lui. Bugetul (bani, taxe, raportul lunii) stă separat, în `private/`, pe care îl citește doar proprietarul. Orașul tău îl pot vedea doar prietenii tăi. Un vizitator poate adăuga la tine doar prețul exact al biletului și un like. După ce ștergi o prietenie, celălalt nu-ți mai vede orașul.
 
 ### Pornirea prietenilor (o singură dată, gratuit)
 

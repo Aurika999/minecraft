@@ -72,17 +72,38 @@ export const updateProfile = (uid, data) => updateDoc(doc(db, 'users', uid), dat
 
 // ---------- orașul în cont ----------
 
+// bugetul (bani, taxe, raportul lunii) stă separat, în private/{uid}, pe care îl citește doar proprietarul;
+// orașul din cities/{uid}, pe care îl văd prietenii în vizită, nu-l conține
+const SECRET = ['money', 'tax', 'lastMonth', 'harvest'];
+
 export async function saveCity(uid, city) {
-  const s = city.stats;
-  await setDoc(doc(db, 'cities', uid), { data: JSON.stringify(city.toJSON()), updatedAt: serverTimestamp() });
+  const s = city.stats, full = city.toJSON();
+  const secret = Object.fromEntries(SECRET.map(k => [k, full[k] ?? null]));
+  const pub = { ...full, money: 0, tax: 9, lastMonth: null, harvest: 0 };
+  try {
+    await setDoc(doc(db, 'private', uid), { ...secret, updatedAt: serverTimestamp() });
+  } catch (e) {
+    // regulile vechi nu știu încă de private/: păstrăm bugetul în oraș, ca să nu se piardă
+    if (!String(e.code).includes('permission-denied')) throw e;
+    Object.assign(pub, secret);
+  }
+  await setDoc(doc(db, 'cities', uid), { data: JSON.stringify(pub), updatedAt: serverTimestamp() });
   await updateDoc(doc(db, 'users', uid), {
-    stats: { pop: s.pop, jobs: s.jobsC + s.jobsI, money: Math.round(city.money), happiness: Math.round(s.happiness * 100), date: city.dateText() },
+    // fără bani: profilul îl vede oricine are cont, iar bugetul rămâne secret
+    stats: { pop: s.pop, jobs: s.jobsC + s.jobsI, happiness: Math.round(s.happiness * 100), date: city.dateText() },
   });
 }
 
-export async function loadCity(uid) {
+// own = true: orașul meu, cu buget cu tot; altfel orașul unui prieten, fără buget
+export async function loadCity(uid, own = false) {
   const snap = await getDoc(doc(db, 'cities', uid));
-  return snap.exists() ? JSON.parse(snap.data().data) : null;
+  if (!snap.exists()) return null;
+  const city = JSON.parse(snap.data().data);
+  if (own) {
+    const p = await getDoc(doc(db, 'private', uid)).catch(() => null);
+    if (p?.exists()) for (const k of SECRET) if (p.data()[k] !== undefined) city[k] = p.data()[k];
+  } else Object.assign(city, { money: 0, tax: 9, lastMonth: null, harvest: 0 });
+  return city;
 }
 
 // ---------- prieteni ----------
@@ -130,7 +151,7 @@ export function watchFriends(uid, cb) {
 // ---------- vizite și bilete ----------
 
 // plătește biletul (îl adaugă la încasările gazdei) și aduce orașul prietenului
-export async function visitFriend(me, host) {
+export async function visitFriend(me, host, myName = '') {
   const hostRef = doc(db, 'users', host);
   // întâi orașul, ca să nu plătească nimeni bilet la un oraș care nu se poate deschide
   const city = await loadCity(host);
@@ -142,8 +163,22 @@ export async function visitFriend(me, host) {
     tx.update(hostRef, { pending: increment(ticket), pendingVisitors: increment(1) });
     return ticket;
   });
-  await addDoc(collection(db, 'visits'), { visitor: me, host, price, at: serverTimestamp() });
+  await addDoc(collection(db, 'visits'), { visitor: me, visitorName: myName, host, price, at: serverTimestamp() });
   return { price, city };
+}
+
+// cine m-a vizitat: cele mai noi vizite primele; numele se iau din profil când lipsesc (vizitele vechi)
+export function watchVisits(uid, cb) {
+  const names = new Map();
+  return onSnapshot(query(collection(db, 'visits'), where('host', '==', uid)), async s => {
+    const list = s.docs.map(d => ({ id: d.id, ...d.data() }));
+    await Promise.all([...new Set(list.filter(v => !v.visitorName).map(v => v.visitor))].filter(id => !names.has(id)).map(async id => {
+      const p = await getDoc(doc(db, 'users', id)).catch(() => null);
+      names.set(id, p?.exists() ? p.data().name : 'Primar necunoscut');
+    }));
+    cb(list.map(v => ({ ...v, visitorName: v.visitorName || names.get(v.visitor), time: v.at?.toDate?.() || new Date() }))
+      .sort((a, b) => b.time - a.time));
+  });
 }
 
 export const likeCity = host => updateDoc(doc(db, 'users', host), { likes: increment(1) });
