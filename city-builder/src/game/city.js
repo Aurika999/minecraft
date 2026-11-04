@@ -10,6 +10,13 @@ export const ZONES = new Set(['R', 'H', 'C', 'I']);
 const demandKey = k => k === 'H' ? 'R' : k;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
+// pod peste drum sau peste cale ferată. level ține:
+//   bitul 0 = axa podului (0 = în lungul lui x, 1 = în lungul lui z),
+//   bitul 1 = ce trece pe sus (0 = drum, 1 = cale ferată),
+//   biții 2–3 = ce trece pe dedesubt, de-a curmezișul (0 = nimic, 1 = drum, 2 = cale ferată)
+export const bridgeOf = l => ({ axis: l & 1, top: l & 2 ? 'rail' : 'road', under: [null, 'road', 'rail'][(l >> 2) & 3] });
+const bridgeLevel = (axis, top, under) => axis | (top === 'rail' ? 2 : 0) | (({ road: 1, rail: 2 })[under] || 0) << 2;
+
 function rng32(seed) {
   return () => {
     seed = (seed + 0x6D2B79F5) | 0;
@@ -72,6 +79,37 @@ export class City {
   idx(x, z) { return z * N + x; }
   inside(x, z) { return x >= 0 && z >= 0 && x < N && z < N; }
 
+  // rampa unui pod: un pătrățel de drum (sau de șine) lipit de capătul podului, în lungul lui.
+  // up = +1 urcă spre +x/+z, -1 urcă invers, 0 = pod de ambele părți
+  ramp(x, z, net) {
+    if (!this.inside(x, z)) return null;
+    const i = this.idx(x, z);
+    if (this.kind[i] !== net || this.terrain[i] === WATER) return null;
+    const deck = (a, b, axis) => {
+      if (!this.inside(a, b) || this.kind[this.idx(a, b)] !== 'bridge') return false;
+      const br = bridgeOf(this.level[this.idx(a, b)]);
+      return br.top === net && br.axis === axis;
+    };
+    for (const axis of [0, 1]) {
+      const [dx, dz] = axis ? [0, 1] : [1, 0], p = deck(x + dx, z + dz, axis), m = deck(x - dx, z - dz, axis);
+      if (p || m) return { axis, up: p && m ? 0 : p ? 1 : -1 };
+    }
+    return null;
+  }
+
+  // pe ce axe trece drumul (net = 'road') sau calea ferată (net = 'rail') printr-un pătrățel: 1 = x, 2 = z
+  lanes(x, z, net) {
+    if (!this.inside(x, z)) return 0;
+    const i = this.idx(x, z), k = this.kind[i];
+    if (k === 'bridge') {
+      const b = bridgeOf(this.level[i]);
+      return (b.top === net ? 1 << b.axis : 0) | (b.under === net ? 1 << (1 - b.axis) : 0);
+    }
+    if (k !== net && k !== 'crossing') return 0;
+    const r = this.ramp(x, z, net); // rampa merge doar în lungul podului
+    return r ? 1 << r.axis : 3;
+  }
+
   generate() {
     const r = rng32(this.seed), land = makeNoise(this.seed), trees = makeNoise(this.seed + 99);
     for (let z = 0; z < N; z++) for (let x = 0; x < N; x++) {
@@ -108,7 +146,7 @@ export class City {
     for (let z = 0; z < N; z++) for (let x = 0; x < N; x++) {
       const i = this.idx(x, z), k = kind[i];
       if (!k) continue;
-      if (k === 'road' || k === 'crossing') {
+      if (k === 'road' || k === 'crossing' || (k === 'bridge' && this.lanes(x, z, 'road'))) {
         for (let dz = -2; dz <= 2; dz++) for (let dx = -2; dx <= 2; dx++) {
           if (Math.abs(dx) + Math.abs(dz) <= 2 && this.inside(x + dx, z + dz)) road[this.idx(x + dx, z + dz)] = 1;
         }
@@ -195,7 +233,10 @@ export class City {
       const water = this.terrain[i] === WATER;
       if (k === 'road' || k === 'crossing') roadCost += water ? BRIDGE_UPKEEP : ROAD_UPKEEP;
       if (k === 'rail' || k === 'crossing') roadCost += water ? BRIDGE_UPKEEP : TOOL.rail.upkeep;
-      else if (k && k !== 'road' && TOOL[k].upkeep) services += TOOL[k].upkeep;
+      else if (k === 'bridge') {
+        const b = bridgeOf(this.level[i]);
+        roadCost += TOOL[b.top === 'road' ? 'flyover' : 'viaduct'].upkeep + (b.under === 'road' ? ROAD_UPKEEP : b.under === 'rail' ? TOOL.rail.upkeep : 0);
+      } else if (k && k !== 'road' && TOOL[k]?.upkeep) services += TOOL[k].upkeep;
       // energia de la eoliene și panouri, produsele de la fermă
       if (k === 'ranch') ranch += (ANIMALS[this.level[i]] || ANIMALS[0]).income;
       else if (k === 'fun') tickets += TOOL.fun.sells;
@@ -225,6 +266,7 @@ export class City {
     const k = this.kind[i], emptyZone = ZONES.has(k) && this.level[i] === 0, free = !k || emptyZone;
     if (tool === 'bulldoze') return k || this.terrain[i] === FOREST ? null : 'Nu e nimic de demolat aici.';
     const linear = tool === 'road' || tool === 'rail';
+    if (linear && (this.ramp(i % N, (i / N) | 0, 'road') || this.ramp(i % N, (i / N) | 0, 'rail'))) return 'Aici e rampa unui pod: nu se poate încrucișa.';
     if (this.terrain[i] === WATER) {
       if (!linear) return 'Pe apă poți construi doar poduri: folosește unealta Drum sau Cale ferată.';
       if (k === tool) return 'Aici e deja un pod.';
@@ -244,7 +286,47 @@ export class City {
     return TOOL[tool].cost + (tool !== 'bulldoze' && this.terrain[i] === FOREST ? FOREST_CLEAR : 0);
   }
 
+  // podul se construiește dintr-o dată: primul și ultimul pătrățel sunt rampe, cele din mijloc pod
+  planBridge(tool, tiles) {
+    const net = TOOL[tool].bridge, what = net === 'road' ? 'drum' : 'cale ferată';
+    const axis = tiles.length > 1 && tiles[0][1] !== tiles[1][1] ? 1 : 0;
+    const items = tiles.map(([x, z], n) => {
+      const i = this.idx(x, z), k = this.kind[i], t = this.terrain[i];
+      const bad = reason => ({ i, x, z, ok: false, reason });
+      const free = !k || (ZONES.has(k) && this.level[i] === 0), forest = t === FOREST ? FOREST_CLEAR : 0;
+      if (n === 0 || n === tiles.length - 1) { // rampă
+        if (t === WATER) return bad('Rampa podului nu poate fi pe apă.');
+        if (k === net) return { i, x, z, ok: true, cost: 0, kind: net, level: 0 };
+        if (free) return { i, x, z, ok: true, cost: TOOL[net].cost + forest, kind: net, level: 0 };
+        return bad(`Rampa podului are nevoie de loc liber sau de ${what}.`);
+      }
+      if (k === 'bridge') return bad('Aici e deja un pod.');
+      if (k === 'crossing') return bad('Sub pod nu poate rămâne o trecere la nivel: demolează-o mai întâi.');
+      if (k !== 'road' && k !== 'rail' && !free) return bad('Locul e ocupat. Demolează mai întâi.');
+      const under = k === 'road' || k === 'rail' ? k : null;
+      return { i, x, z, ok: true, cost: TOOL[tool].cost + forest, kind: 'bridge', level: bridgeLevel(axis, net, under) };
+    });
+    if (tiles.length < 3) return { items: items.map(it => ({ ...it, ok: false })), cost: 0, error: 'Trage mai lung: o rampă, podul și încă o rampă (cel puțin 3 pătrățele).' };
+    const wrong = items.find(it => !it.ok);
+    return { items, cost: items.reduce((s, it) => s + (it.cost || 0), 0), error: wrong?.reason };
+  }
+
   apply(tool, tiles) {
+    if (TOOL[tool].bridge) {
+      const p = this.planBridge(tool, tiles);
+      if (p.error) return { error: p.error };
+      if (p.cost > this.money) return { error: `Nu ai destui bani: podul costă ${p.cost.toLocaleString('ro-RO')} $.` };
+      this.money -= p.cost;
+      for (const it of p.items) {
+        if (this.terrain[it.i] === FOREST) this.terrain[it.i] = GRASS;
+        this.kind[it.i] = it.kind;
+        this.level[it.i] = it.level;
+      }
+      this.version++;
+      this.recompute();
+      this.updateStats();
+      return { cost: p.cost, count: p.items.length };
+    }
     let cost = 0, reason = null;
     const ok = [];
     for (const [x, z] of tiles) {
@@ -259,7 +341,8 @@ export class City {
     for (const i of ok) {
       if (this.terrain[i] === FOREST) this.terrain[i] = GRASS;
       const k = this.kind[i];
-      this.kind[i] = tool === 'bulldoze' ? null
+      // un pod demolat lasă în urmă ce trecea pe sub el
+      this.kind[i] = tool === 'bulldoze' ? (k === 'bridge' ? bridgeOf(this.level[i]).under : null)
         : (tool === 'road' && k === 'rail') || (tool === 'rail' && k === 'road') ? 'crossing' : tool;
       this.level[i] = 0;
     }
@@ -282,6 +365,11 @@ export class City {
       value: Math.round(this.value[i] * 100), pollution: Math.round(this.pollution[i] * 100),
       powered: !!this.powered[i], watered: !!this.watered[i], road: !!this.road[i],
     };
+    if (k === 'bridge') {
+      const br = bridgeOf(l);
+      info.title = (br.top === 'road' ? 'Pod rutier' : 'Pod de cale ferată')
+        + (br.under === 'road' ? ' peste drum' : br.under === 'rail' ? ' peste calea ferată' : this.terrain[i] === WATER ? ' peste apă' : '');
+    }
     if (k === 'ranch') info.ranch = this.level[i] < ANIMALS.length ? this.level[i] : 0;
     if (k === 'farm') {
       info.crop = CROPS[this.variant[i] % CROPS.length];

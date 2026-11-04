@@ -51,6 +51,8 @@ Nu există un final fix. Încerci să ai un oraș **cât mai mare**, cu **oameni
 | 🎡 Parc de distracții | 1.200 $ | 20 $ | 6 | Roată mare, carusel, montagne russe, chioșcuri. Vinde bilete: **+60 $ / lună** |
 | 🚉 Gară | 1.500 $ | 30 $ | 10 | Aduce mai multe trenuri și crește valoarea terenului |
 | 🌉 Pod (drum peste apă) | 60 $ | 3 $ / pătrățel | — | Leagă malurile. Se face tot cu unealta Drum |
+| 🌉 Pod rutier | 150 $ | 4 $ / pătrățel | — | Drumul trece pe sus, peste o cale ferată sau peste alt drum. Capetele liniei devin rampe |
+| 🚝 Pod de tren | 200 $ | 5 $ / pătrățel | — | Calea ferată trece pe sus, peste un drum. Capetele liniei devin rampe |
 | 🏠 Locuințe (R) | 20 $ | — | — | Aici se mută oamenii |
 | 🏢 Blocuri (H) | 40 $ | — | — | Blocuri cu etaje: încap foarte mulți oameni |
 | 🏬 Comerț (C) | 25 $ | — | — | Magazine și birouri, dau locuri de muncă |
@@ -176,7 +178,15 @@ Fiecare pătrățel vinde bilete (**+60 $ pe lună**, la „Bilete la parcul de 
 
 ### Calea ferată și trenurile
 
-Cu 🛤️ **Cale ferată** tragi șine, la fel ca drumurile. Când treci cu șinele peste un drum (sau cu drumul peste șine), se face automat o **trecere la nivel**, cu indicatoare. Mașinile o traversează, iar trenurile trec prin ea. Peste apă se face un **pod de cale ferată** (60 $).
+Cu 🛤️ **Cale ferată** tragi șine, la fel ca drumurile. Când treci cu șinele peste un drum (sau cu drumul peste șine), se face automat o **trecere la nivel**, cu indicatoare și **bariere**. Când se apropie un tren, luminile roșii clipesc, barierele se lasă și mașinile așteaptă în fața lor; după ce trece ultimul vagon, barierele se ridică. Dacă o mașină a rămas pe șine, trenul o așteaptă să iasă. Peste apă se face un **pod de cale ferată** (60 $).
+
+**Poduri peste drum și peste șine:** dacă nu vrei ca mașinile să aștepte la trecerea la nivel, construiești un pod.
+- 🌉 **Pod rutier:** tragi în linie dreaptă peste o cale ferată sau peste alt drum. Mașinile trec pe sus, iar trenurile (sau mașinile de pe drumul de jos) trec pe dedesubt.
+- 🚝 **Pod de tren:** tragi în linie dreaptă peste un drum. Trenul trece pe sus, iar mașinile pe dedesubt.
+- Linia are cel puțin 3 pătrățele: primul și ultimul devin **rampe**, cele din mijloc sunt **podul** (150 $ sau 200 $ pătrățelul).
+- Rampele au nevoie de loc liber sau de drumul (șinele) care vine spre pod. Sub pod nu poate rămâne o trecere la nivel.
+- Pe pod nu se virează: mașinile și trenurile merg drept înainte, iar oamenii merg pe trotuarele podului.
+- Dacă demolezi podul, rămâne la loc ce trecea pe sub el.
 
 Când ai cel puțin 3 pătrățele de șine, apare un **tren cu locomotivă cu aburi** și 2–4 vagoane colorate. Fiecare 🚉 **Gară** mai aduce un tren, până la 6. Trenurile aleg singure drumul la ramificații, iar la capăt de linie se întorc. Gara se întoarce cu copertina spre șine.
 

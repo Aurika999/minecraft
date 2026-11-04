@@ -175,7 +175,9 @@ export class Engine {
         const n = Math.max(Math.abs(q.x - p.x), Math.abs(q.z - p.z));
         for (let s = 0; s <= n; s++) out.push([p.x + Math.sign(q.x - p.x) * s, p.z + Math.sign(q.z - p.z) * s]);
       };
-      seg(a, corner); seg(corner, b);
+      seg(a, corner);
+      // podul se face doar în linie dreaptă
+      if (!TOOL[this.tool].bridge) seg(corner, b);
       return out.filter(([x, z], i) => out.findIndex(([x2, z2]) => x2 === x && z2 === z) === i);
     }
     for (let z = Math.min(a.z, b.z); z <= Math.max(a.z, b.z); z++)
@@ -185,6 +187,13 @@ export class Engine {
 
   showPreview(a, b) {
     const tiles = this.tilesFor(a, b), c = this.city;
+    if (TOOL[this.tool].bridge) {
+      const p = c.planBridge(this.tool, tiles), ok = !p.error && p.cost <= c.money;
+      this.view.setPreview(p.items.map(it => ({ x: it.x, z: it.z, ok: it.ok && ok })));
+      this.previewCost = p.cost;
+      this.emit();
+      return;
+    }
     let cost = 0;
     const items = tiles.map(([x, z]) => {
       const ok = !c.check(this.tool, c.idx(x, z));
@@ -342,7 +351,7 @@ export class Engine {
       previewCost: this.previewCost || 0, welcome: this.welcome, messages: [...this.messages],
       readOnly: !!this.readOnly, visiting: this.visiting || null, homeMoney: this.homeCity().money,
       info: this.selected ? c.tileInfo(this.selected.x, this.selected.z) : null,
-      buildings: c.kind.reduce((n, k, i) => n + (k && !['road', 'rail', 'crossing'].includes(k) && (!ZONES.has(k) || c.level[i]) ? 1 : 0), 0),
+      buildings: c.kind.reduce((n, k, i) => n + (k && !['road', 'rail', 'crossing', 'bridge'].includes(k) && (!ZONES.has(k) || c.level[i]) ? 1 : 0), 0),
     });
   }
 }

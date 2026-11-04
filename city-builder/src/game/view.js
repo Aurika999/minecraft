@@ -1,10 +1,10 @@
 // Grafica 3D: harta, clădirile, mașinile, camera izometrică.
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { N, ANIMALS } from './config.js';
+import { N, ANIMALS, BRIDGE_H } from './config.js';
 import { animalGeometries, TINTS } from './animals.js';
 import { PERSON_TYPES, PERSON_COLORS } from './people.js';
-import { GRASS, WATER, FOREST, ZONES } from './city.js';
+import { GRASS, WATER, FOREST, ZONES, bridgeOf } from './city.js';
 
 const COL = {
   grass: [0x8fd14f, 0x89cc4a, 0x96d657], forest: 0x7cc444, water: 0x3fb6e8, road: 0x70757d, mark: 0xe9e4c8,
@@ -323,6 +323,9 @@ export class CityView {
       // acoperiș în două ape: prismă triunghiulară, coama de-a lungul axei z
       arch: new THREE.CylinderGeometry(.5, .5, 1, 16, 1, true, 0, Math.PI).rotateZ(Math.PI / 2),
       torus: new THREE.TorusGeometry(.35, .15, 8, 18).rotateX(Math.PI / 2).translate(0, .15, 0),
+      // pană: urcă de la 0 (la x = -.5) până la 1 (la x = .5); rampa podului
+      wedge: new THREE.ExtrudeGeometry(new THREE.Shape([new THREE.Vector2(-.5, 0), new THREE.Vector2(.5, 0), new THREE.Vector2(.5, 1)]),
+        { depth: 1, bevelEnabled: false }).translate(0, 0, -.5),
       gable: new THREE.ExtrudeGeometry(new THREE.Shape([new THREE.Vector2(-.5, 0), new THREE.Vector2(.5, 0), new THREE.Vector2(0, 1)]),
         { depth: 1, bevelEnabled: false }).translate(0, 0, -.5),
     };
@@ -332,6 +335,7 @@ export class CityView {
       mark: new Pool(scene, this.geo.box, N * N * 12, { shadow: false }),
       box: new Pool(scene, this.geo.box, N * N * 14),
       gable: new Pool(scene, this.geo.gable, N * N * 3),
+      wedge: new Pool(scene, this.geo.wedge, N * N),
       house: facade({ floor: .2, cell: .14, winW: .48, winH: .48, base: .04, top: .03 }, N * N * 2),
       apt: facade({ floor: .2, cell: .14, winW: .55, winH: .55, base: .2, top: .06 }, N * N),
       block: facade({ floor: .2, cell: .13, winW: .56, winH: .52, base: .2, top: .06, line: 1 }, N * N * 2),
@@ -359,6 +363,11 @@ export class CityView {
     this.signalAt = new Map();
     this.trafficClock = 0;
     this.signalPool = new Pool(scene, new THREE.SphereGeometry(.5, 8, 6), 4000, { shadow: false, material: new THREE.MeshBasicMaterial() });
+    // barierele de la trecerile la nivel: brațul (dungi roșu-alb) și luminile care clipesc când vine trenul
+    this.barriers = [];
+    this.closed = new Set();
+    this.barrierPool = new Pool(scene, new THREE.BoxGeometry(1, 1, 1), 3000);
+    this.barrierLights = new Pool(scene, new THREE.SphereGeometry(.5, 8, 6), 1000, { shadow: false, material: new THREE.MeshBasicMaterial() });
     // oamenii: pentru fiecare tip, corpul, detaliile (cap, păr, lucruri), picioarele și mâinile care se mișcă la mers
     this.personPools = Object.fromEntries(Object.entries(PERSON_TYPES).map(([id, T]) => [id, {
       top: new Pool(scene, T.geo.top, MAX_PEOPLE, { material: detailMat() }),
@@ -409,7 +418,7 @@ export class CityView {
     this.select.visible = false;
     scene.add(this.select);
 
-    this.m = new THREE.Matrix4(); this.q = new THREE.Quaternion(); this.c = new THREE.Color();
+    this.m = new THREE.Matrix4(); this.q = new THREE.Quaternion(); this.qx = new THREE.Quaternion(); this.c = new THREE.Color();
     this.v = new THREE.Vector3(); this.s = new THREE.Vector3(); this.up = new THREE.Vector3(0, 1, 0);
     this.ray = new THREE.Raycaster(); this.plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
     this.resize();
@@ -474,6 +483,93 @@ export class CityView {
     this.q.setFromAxisAngle(this.up, rot);
     this.m.compose(this.v.set(x, y, z), this.q, this.s.set(sx, sy, sz));
     this.pools[pool].add(this.m, this.c.setHex(color));
+  }
+
+  // placă înclinată pe un pătrățel, în lungul axei (0 = x, 1 = z): urcă de la h0 la h1 și stă pe pantă;
+  // w = lățimea, th = grosimea, off = cât e mutată de-a curmezișul, lift = cât e ridicată deasupra pantei
+  tilt(pool, cx, cz, axis, h0, h1, w, th, color, off = 0, lift = 0) {
+    const d = h1 - h0;
+    this.q.setFromAxisAngle(this.up, axis ? 0 : Math.PI / 2).multiply(this.qx.setFromAxisAngle(this.xAxis, -Math.atan(d)));
+    this.m.compose(this.v.set(cx + (axis ? off : 0), (h0 + h1) / 2 + lift, cz + (axis ? 0 : off)), this.q, this.s.set(w, th, Math.hypot(1, d)));
+    this.pools[pool].add(this.m, this.c.setHex(color));
+  }
+
+  // cât de sus e drumul (net = 'road') sau calea ferată (net = 'rail') într-un pătrățel, pentru cine merge în lungul axei
+  // (0 = x, 1 = z); u = locul în pătrățel, de la -.5 la .5. Pe pod e sus, pe rampă urcă, altfel e la sol
+  heightOf(net, i, axis, u) {
+    const e = this.elev?.[net][i] ?? 0, type = e & 3;
+    if (!type || e >> 2 !== axis) return 0;
+    return type === 1 ? BRIDGE_H : type === 2 ? BRIDGE_H * (u + .5) : BRIDGE_H * (.5 - u);
+  }
+
+  slopeOf(net, i, axis) {
+    const e = this.elev?.[net][i] ?? 0, type = e & 3;
+    return e >> 2 !== axis ? 0 : type === 2 ? BRIDGE_H : type === 3 ? -BRIDGE_H : 0;
+  }
+
+  // pietriș, traverse și șine, pe brațele date (ridicate cu y)
+  railBed(cx, cz, arms, bed, y = 0) {
+    for (const [dx, dz] of arms) {
+      if (bed) { // pietriș și traverse de lemn
+        this.part('mark', cx + dx * .25, y, cz + dz * .25, dx ? .5 : .36, .02, dz ? .5 : .36, COL.gravel);
+        for (const o of [.04, .2, .36]) this.part('box', cx + dx * o, y + .02, cz + dz * o, dx ? .06 : .3, .016, dz ? .3 : .06, COL.sleeper);
+      }
+      for (const q of [-.075, .075]) this.part('box', cx + dx * .25 + (dz ? q : 0), y + (bed ? .036 : .001), cz + dz * .25 + (dx ? q : 0),
+        dx ? .5 : .022, bed ? .02 : .012, dz ? .5 : .022, bed ? COL.rail : 0x55595f);
+    }
+  }
+
+  // pod peste drum sau șine: dedesubt drumul (sau șinele) de-a curmezișul, deasupra tablierul pe stâlpi
+  bridgeTile(cx, cz, b, water) {
+    const H = BRIDGE_H, A = b.axis;
+    const at = (u, w) => A ? [cx + w, cz + u] : [cx + u, cz + w]; // u = în lungul podului, w = de-a curmezișul
+    const size = (l, w) => A ? [w, l] : [l, w]; // dimensiunile [x, z] pentru ceva lung l în lungul podului și lat w
+    const box = (pool, u, w, y, l, h, wd, color) => { const [px, pz] = at(u, w), [sx, sz] = size(l, wd); this.part(pool, px, y, pz, sx, h, sz, color); };
+    const along = [[1, 0], [-1, 0]], across = [[0, 1], [0, -1]];
+    if (b.under === 'road') {
+      // drumul de jos: trotuare cu bordură pe margini și linia din mijloc
+      for (const s of [-1, 1]) {
+        box('mark', s * .41, 0, 0, .18, .025, 1, COL.sidewalk);
+        box('mark', s * .325, 0, 0, .02, .032, 1, COL.curb);
+      }
+      for (const o of [-.25, .25]) box('mark', 0, o, .002, .035, .008, .14, 0xf4f1e4);
+    } else if (b.under === 'rail') this.railBed(cx, cz, A ? along : across, true);
+    // stâlpii stau pe marginile a ce trece pe dedesubt, iar grinzile țin tablierul
+    const foot = water ? -.2 : 0;
+    for (const su of [-1, 1]) for (const sw of [-1, 1]) box('box', su * .465, sw * .42, foot, .07, H - .1 - foot, .07, COL.pillar);
+    for (const sw of [-1, 1]) box('box', 0, sw * .42, H - .16, 1, .06, .08, COL.pillar);
+    box('box', 0, 0, H - .1, 1, .1, .98, COL.bridge);
+    if (b.top === 'road') {
+      box('mark', 0, 0, H - .004, 1, .008, .62, COL.road);
+      for (const s of [-1, 1]) {
+        box('mark', 0, s * .4, H, 1, .025, .18, COL.sidewalk);
+        box('box', 0, s * .48, H, 1, .12, .04, COL.bridge);
+        box('box', 0, s * .48, H + .12, 1, .015, .05, 0xdfe4e9);
+      }
+      for (const o of [-.25, .25]) box('mark', o, 0, H + .002, .14, .008, .035, 0xf4f1e4);
+    } else {
+      this.railBed(cx, cz, A ? across : along, true, H);
+      for (const s of [-1, 1]) box('box', 0, s * .47, H, 1, .1, .05, 0x8b2f2a);
+    }
+  }
+
+  // rampa podului: un taluz de beton care urcă până la tablier, cu drumul (sau șinele) pe el
+  rampTile(cx, cz, net, e) {
+    const H = BRIDGE_H, A = e >> 2, type = e & 3, h0 = type === 2 ? 0 : H, h1 = type === 3 ? 0 : H;
+    if (type === 1) this.part('box', cx, 0, cz, 1, H - .001, .98, COL.bridge);
+    else this.part('wedge', cx, 0, cz, 1, H, .98, COL.bridge, A ? (type === 2 ? -Math.PI / 2 : Math.PI / 2) : (type === 2 ? 0 : Math.PI));
+    if (net === 'road') {
+      this.tilt('mark', cx, cz, A, h0, h1, .62, .008, COL.road, 0, -.004);
+      for (const s of [-1, 1]) {
+        this.tilt('mark', cx, cz, A, h0, h1, .18, .025, COL.sidewalk, s * .4);
+        this.tilt('box', cx, cz, A, h0, h1, .04, .12, COL.bridge, s * .48);
+        this.tilt('box', cx, cz, A, h0, h1, .05, .015, 0xdfe4e9, s * .48, .12);
+      }
+    } else {
+      this.tilt('mark', cx, cz, A, h0, h1, .36, .02, COL.gravel);
+      for (const q of [-.075, .075]) this.tilt('box', cx, cz, A, h0, h1, .022, .02, COL.rail, q, .02);
+      for (const s of [-1, 1]) this.tilt('box', cx, cz, A, h0, h1, .05, .1, 0x8b2f2a, s * .47);
+    }
   }
 
   tree(x, z, s, v, pine = false, pal = null) {
@@ -599,12 +695,31 @@ export class CityView {
     this.rides = { wheels: [], carousels: [], coasters: [] };
     const bigLots = this.findBigLots(city), crossTiles = new Set(), signals = [], interTiles = new Set();
     let stations = 0;
+    const barriers = [];
+    // pe ce axe merg drumurile și șinele prin fiecare pătrățel, cât de sus (pod, rampă) și unde nu se poate vira (pod)
+    const lanes = { road: new Uint8Array(N * N), rail: new Uint8Array(N * N) }, elev = { road: new Uint8Array(N * N), rail: new Uint8Array(N * N) };
+    const straight = new Uint8Array(N * N);
+    for (let z = 0; z < N; z++) for (let x = 0; x < N; x++) {
+      const i = z * N + x;
+      for (const net of ['road', 'rail']) {
+        lanes[net][i] = city.lanes(x, z, net);
+        const r = city.ramp(x, z, net);
+        if (r) elev[net][i] = r.axis * 4 + (r.up === 0 ? 1 : r.up > 0 ? 2 : 3);
+      }
+      if (city.kind[i] === 'bridge') { const b = bridgeOf(city.level[i]); straight[i] = 1; elev[b.top][i] = b.axis * 4 + 1; }
+    }
+    const link = (net, x, z, dx, dz) => {
+      const a = x + dx, b = z + dz, bit = dx ? 1 : 2;
+      return a >= 0 && b >= 0 && a < N && b < N && !!(lanes[net][z * N + x] & bit) && !!(lanes[net][b * N + a] & bit);
+    };
+    Object.assign(this, { lanes, elev, straight, link });
     for (let z = 0; z < N; z++) for (let x = 0; x < N; x++) {
       const i = z * N + x, t = city.terrain[i], k = city.kind[i], lvl = city.level[i], v = city.variant[i];
       const cx = x - N / 2 + .5, cz = z - N / 2 + .5;
       // pământul
       let gc = pick(COL.grass, v), top = 0;
       if (t === WATER) { gc = COL.water; top = -.2; }
+      else if (k === 'bridge') gc = bridgeOf(lvl).under === 'road' ? COL.road : pick(COL.grass, v);
       else if (ROADISH.has(k)) gc = COL.road;
       else if (ZONES.has(k)) gc = lvl ? COL.lot[k] : COL[k]; // zona goală își păstrează culoarea, ca s-o recunoști
       else if (k === 'park') gc = COL.park;
@@ -627,10 +742,19 @@ export class CityView {
         const n = 2 + (v % 2);
         for (let j = 0; j < n; j++) this.tree(cx + (hash(i, j) - .5) * .6, cz + (hash(i, j + 9) - .5) * .6, .8 + hash(i, j + 3) * .5, v + j, hash(i, j + 4) < .45);
       }
+      // podurile și rampele lor se desenează separat
+      const rampNet = k === 'road' && elev.road[i] ? 'road' : k === 'rail' && elev.rail[i] ? 'rail' : null;
+      if (rampNet || k === 'bridge') {
+        if (lanes.road[i]) roads.push([x, z]);
+        if (lanes.rail[i]) rails.push([x, z]);
+        if (k === 'bridge') this.bridgeTile(cx, cz, bridgeOf(lvl), t === WATER);
+        else this.rampTile(cx, cz, rampNet, elev[rampNet][i]);
+        continue;
+      }
       if (ROADISH.has(k)) {
         roads.push([x, z]);
         const nb = [[1, 0], [-1, 0], [0, 1], [0, -1]];
-        const isRoad = (a, b) => a >= 0 && b >= 0 && a < N && b < N && ROADISH.has(city.kind[b * N + a]);
+        const isRoad = (a, b) => link('road', x, z, a - x, b - z);
         const links = nb.filter(([dx, dz]) => isRoad(x + dx, z + dz)).length;
         if (links >= 3) interTiles.add(i);
         if (t === WATER) {
@@ -719,7 +843,7 @@ export class CityView {
       if (RAILISH.has(k)) {
         rails.push([x, z]);
         const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
-        const isRail = (a, b) => a >= 0 && b >= 0 && a < N && b < N && RAILISH.has(city.kind[b * N + a]);
+        const isRail = (a, b) => link('rail', x, z, a - x, b - z);
         let arms = dirs.filter(([dx, dz]) => isRail(x + dx, z + dz));
         if (arms.length === 1) arms.push([-arms[0][0], -arms[0][1]]);
         if (!arms.length) arms = [[1, 0], [-1, 0]];
@@ -729,18 +853,19 @@ export class CityView {
           for (const [dx, dz] of dirs) if (!arms.some(([a, b]) => a === dx && b === dz))
             this.part('box', cx + dx * .47, 0, cz + dz * .47, dx ? .05 : 1, .1, dz ? .05 : 1, 0x8b2f2a);
         }
-        const bed = k === 'rail';
-        for (const [dx, dz] of arms) {
-          if (bed) { // pietriș și traverse de lemn
-            this.part('mark', cx + dx * .25, 0, cz + dz * .25, dx ? .5 : .36, .02, dz ? .5 : .36, COL.gravel);
-            for (const o of [.04, .2, .36]) this.part('box', cx + dx * o, .02, cz + dz * o, dx ? .06 : .3, .016, dz ? .3 : .06, COL.sleeper);
+        this.railBed(cx, cz, arms, k === 'rail');
+        if (k === 'crossing') {
+          // câte o barieră pe fiecare stradă care intră în trecere, pe banda mașinilor care vin spre șine;
+          // stâlpul stă pe trotuar, brațul se lasă peste bandă când vine trenul
+          for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+            if (!link('road', x, z, dx, dz)) continue;
+            const px = cx + dx * .46 + dz * .4, pz = cz + dz * .46 - dx * .4;
+            this.part('cyl', px, 0, pz, .035, .2, .035, 0xf2f2f2);
+            this.part('box', px, .2, pz, .06, .06, .06, 0x333333);
+            this.part('cyl', cx + dx * .46 - dz * .44, 0, cz + dz * .46 + dx * .44, .016, .26, .016, 0xffffff);
+            this.part('box', cx + dx * .46 - dz * .44, .24, cz + dz * .46 + dx * .44, dx ? .02 : .12, .03, dx ? .12 : .02, 0xe53935);
+            barriers.push({ i, x: px, z: pz, hx: -dz, hz: dx, a: Math.PI / 2 });
           }
-          for (const q of [-.075, .075]) this.part('box', cx + dx * .25 + (dz ? q : 0), bed ? .036 : .001, cz + dz * .25 + (dx ? q : 0),
-            dx ? .5 : .022, bed ? .02 : .012, dz ? .5 : .022, bed ? COL.rail : 0x55595f);
-        }
-        if (k === 'crossing') for (const q of [-1, 1]) { // indicatoare cu cruce roșie
-          this.part('cyl', cx + q * .42, 0, cz + q * .42, .018, .24, .018, 0xffffff);
-          this.part('box', cx + q * .42, .22, cz + q * .42, .12, .03, .02, 0xe53935);
         }
       }
       if (k === 'station') stations++;
@@ -765,6 +890,10 @@ export class CityView {
     this.rails = rails;
     this.railSet = new Set(rails.map(([x, z]) => z * N + x));
     this.stations = stations;
+    // păstrează cum erau barierele (sus sau jos), ca să nu sară la reconstruire
+    const old = new Map(this.barriers.map(b => [`${b.i}:${b.hx}:${b.hz}`, b.a]));
+    for (const b of barriers) b.a = old.get(`${b.i}:${b.hx}:${b.hz}`) ?? b.a;
+    this.barriers = barriers;
     this.syncAnimals();
   }
 
@@ -1348,7 +1477,7 @@ export class CityView {
   moveAlong(list, dt, target, make, lane, { hold, onNode } = {}) {
     const roads = this.roads || [], set = this.roadSet;
     const isRoad = (x, z) => x >= 0 && z >= 0 && x < N && z < N && set.has(z * N + x);
-    const neighbors = (x, z) => [[1, 0], [-1, 0], [0, 1], [0, -1]].map(([dx, dz]) => [x + dx, z + dz]).filter(([a, b]) => isRoad(a, b));
+    const neighbors = (x, z) => [[1, 0], [-1, 0], [0, 1], [0, -1]].filter(([dx, dz]) => this.link('road', x, z, dx, dz)).map(([dx, dz]) => [x + dx, z + dz]);
     const spawn = () => {
       const [x, z] = roads[Math.random() * roads.length | 0], nb = neighbors(x, z);
       if (!nb.length) return null;
@@ -1364,8 +1493,11 @@ export class CityView {
       if (!hold?.(o)) o.t += dt * o.speed;
       while (o.t >= 1) {
         o.t -= 1;
-        const nb = neighbors(...o.to), fwd = nb.filter(([a, b]) => a !== o.from[0] || b !== o.from[1]);
-        const opts = fwd.length ? fwd : nb;
+        const nb = neighbors(...o.to), [tx, tz] = o.to;
+        // pe pod nu se virează: mașina merge drept înainte, pe nivelul ei
+        const fwd = this.straight[tz * N + tx] ? nb.filter(([a, b]) => a - tx === tx - o.from[0] && b - tz === tz - o.from[1])
+          : nb.filter(([a, b]) => a !== o.from[0] || b !== o.from[1]);
+        const opts = fwd.length ? fwd : [o.from];
         o.from = o.to;
         o.to = opts.length ? opts[Math.random() * opts.length | 0] : o.from;
         onNode?.(o);
@@ -1374,6 +1506,10 @@ export class CityView {
       o.dx = dx; o.dz = dz;
       o.x = o.from[0] + dx * o.t - N / 2 + .5 - dz * off;
       o.z = o.from[1] + dz * o.t - N / 2 + .5 + dx * off;
+      // pe rampă urcă, pe pod e sus
+      const near = o.t < .5 ? o.from : o.to, ni = near[1] * N + near[0], sg = dx + dz;
+      o.y = sg ? this.heightOf('road', ni, dx ? 0 : 1, (o.t < .5 ? o.t : o.t - 1) * sg) : 0;
+      o.pitch = sg ? Math.atan(this.slopeOf('road', ni, dx ? 0 : 1) * sg) : 0;
       // virează lin în loc să se întoarcă dintr-odată
       if (dx || dz) {
         let d = Math.atan2(dx, dz) - o.yaw;
@@ -1385,42 +1521,55 @@ export class CityView {
 
   draw(layers, o, y, colors, scale = 1) {
     this.q.setFromAxisAngle(this.up, o.yaw);
-    this.m.compose(this.v.set(o.x, y, o.z), this.q, this.s.set(scale, scale, scale));
+    if (o.pitch) this.q.multiply(this.qx.setFromAxisAngle(this.xAxis, -o.pitch));
+    this.m.compose(this.v.set(o.x, y + (o.y || 0), o.z), this.q, this.s.set(scale, scale, scale));
     layers.forEach((pool, j) => pool.add(this.m, colors[j] == null ? this.white : this.c.setHex(colors[j])));
   }
 
   // trotuarele ca o rețea de puncte: colțurile fiecărui pătrățel de drum, legate pe marginile fără stradă (trotuar),
   // între pătrățele vecine și prin zebre: la intersecții și la trecerile cu semafor. Altfel nu se poate traversa.
   buildWalk(city) {
-    const isRoad = (a, b) => a >= 0 && b >= 0 && a < N && b < N && ROADISH.has(city.kind[b * N + a]);
-    const nodes = [], adj = [], id = new Map(), W = .42;
-    const node = (key, x, z) => {
-      if (!id.has(key)) { id.set(key, nodes.length); nodes.push({ x, z, key }); adj.push([]); }
+    const L = this.lanes.road, S = this.straight, nodes = [], adj = [], id = new Map(), W = .42, NN = N * N;
+    const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+    const node = (key, x, z, y = 0) => {
+      if (!id.has(key)) { id.set(key, nodes.length); nodes.push({ x, z, y, key }); adj.push([]); }
       return id.get(key);
     };
-    const link = (a, b, cross = null) => { adj[a].push({ to: b, cross }); adj[b].push({ to: a, cross }); };
+    // rail = trecerea la nivel peste care trece bucata asta de trotuar (acolo oamenii așteaptă trenul)
+    const link = (a, b, cross = null, rail = null) => { adj[a].push({ to: b, cross, rail }); adj[b].push({ to: a, cross, rail }); };
     const ci = (a, b) => (a > 0 ? 1 : 0) + (b > 0 ? 2 : 0);
+    // pe un pod rutier sunt două niveluri de trotuar: pe pod și lângă drumul de dedesubt (cu alte chei)
+    const base = (j, axis) => city.kind[j] === 'bridge' && bridgeOf(city.level[j]).axis !== axis ? (NN + j) * 8 : j * 8;
+    const corner = (j, axis, a, b) => node(base(j, axis) + ci(a, b), j % N - N / 2 + .5 + a * W, ((j / N) | 0) - N / 2 + .5 + b * W,
+      this.heightOf('road', j, axis, axis ? b * W : a * W));
     for (const [x, z] of this.roads) {
       const i = z * N + x, cx = x - N / 2 + .5, cz = z - N / 2 + .5;
-      const corner = (a, b) => node(i * 8 + ci(a, b), cx + a * W, cz + b * W);
-      const inter = [[1, 0], [-1, 0], [0, 1], [0, -1]].filter(([dx, dz]) => isRoad(x + dx, z + dz)).length >= 3;
-      for (const s of [-1, 1]) {
-        // o latură fără stradă e trotuar; o latură din care pleacă o stradă se poate trece doar pe zebra intersecției
-        if (!isRoad(x, z + s)) link(corner(-1, s), corner(1, s));
-        else if (inter) link(corner(-1, s), corner(1, s), { tile: i, arm: [0, s] });
-        if (!isRoad(x + s, z)) link(corner(s, -1), corner(s, 1));
-        else if (inter) link(corner(s, -1), corner(s, 1), { tile: i, arm: [s, 0] });
+      const levels = S[i] ? [1, 2].filter(m => L[i] & m) : [L[i]];
+      for (const mask of levels) {
+        const ax = mask === 2 ? 1 : 0, c = (a, b) => corner(i, ax, a, b);
+        const has = (dx, dz) => !!(mask & (dx ? 1 : 2)) && this.link('road', x, z, dx, dz);
+        const inter = mask === 3 && DIRS.filter(([dx, dz]) => has(dx, dz)).length >= 3;
+        // la trecerea la nivel: șinele în lungul lui z taie trotuarele în lungul lui x, și invers
+        const level = city.kind[i] === 'crossing', railR = this.lanes.rail[i];
+        const rx = level && railR & 2 ? i : null, rz = level && railR & 1 ? i : null;
+        for (const s of [-1, 1]) {
+          // o latură fără stradă e trotuar; o latură din care pleacă o stradă se poate trece doar pe zebra intersecției
+          if (!has(0, s)) link(c(-1, s), c(1, s), null, rx);
+          else if (inter) link(c(-1, s), c(1, s), { tile: i, arm: [0, s] }, rx);
+          if (!has(s, 0)) link(c(s, -1), c(s, 1), null, rz);
+          else if (inter) link(c(s, -1), c(s, 1), { tile: i, arm: [s, 0] }, rz);
+        }
+        const sig = mask === 3 && this.signalAt.get(i);
+        if (sig) { // trecerea cu semafor: câte un punct pe fiecare trotuar, iar între ele zebra
+          const m = [-1, 1].map(s => sig.alongX ? node(i * 8 + 4 + (s > 0), cx, cz + s * W) : node(i * 8 + 4 + (s > 0), cx + s * W, cz));
+          [-1, 1].forEach((s, j) => {
+            if (sig.alongX) { link(m[j], c(-1, s)); link(m[j], c(1, s)); } else { link(m[j], c(s, -1)); link(m[j], c(s, 1)); }
+          });
+          link(m[0], m[1], { tile: i, signal: sig });
+        }
+        if (has(1, 0)) for (const s of [-1, 1]) link(corner(i, 0, 1, s), corner(i + 1, 0, -1, s));
+        if (has(0, 1)) for (const s of [-1, 1]) link(corner(i, 1, s, 1), corner(i + N, 1, s, -1));
       }
-      const sig = this.signalAt.get(i);
-      if (sig) { // trecerea cu semafor: câte un punct pe fiecare trotuar, iar între ele zebra
-        const m = [-1, 1].map(s => sig.alongX ? node(i * 8 + 4 + (s > 0), cx, cz + s * W) : node(i * 8 + 4 + (s > 0), cx + s * W, cz));
-        [-1, 1].forEach((s, j) => {
-          if (sig.alongX) { link(m[j], corner(-1, s)); link(m[j], corner(1, s)); } else { link(m[j], corner(s, -1)); link(m[j], corner(s, 1)); }
-        });
-        link(m[0], m[1], { tile: i, signal: sig });
-      }
-      if (isRoad(x + 1, z)) for (const s of [-1, 1]) link(corner(1, s), node((i + 1) * 8 + ci(-1, s), cx + 1 - W, cz + s * W));
-      if (isRoad(x, z + 1)) for (const s of [-1, 1]) link(corner(s, 1), node((i + N) * 8 + ci(s, -1), cx + s * W, cz + 1 - W));
     }
     return { nodes, adj, id };
   }
@@ -1452,8 +1601,14 @@ export class CityView {
       let p = list[k], ia = W.id.get(p.a), ib = W.id.get(p.b);
       if (ia == null || ib == null) { p = list[k] = spawn(); if (!p) { list.splice(k--, 1); continue; } ia = W.id.get(p.a); ib = W.id.get(p.b); }
       if (p.waiting && pedGreen(p.waiting)) p.waiting = null;
+      // bariera e lăsată: cine n-a pornit peste șine așteaptă, cine abia a pornit se întoarce, cine e aproape dincolo termină
+      p.stand = false;
+      if (p.rail != null && this.closed.has(p.rail)) {
+        if (p.t === 0) p.stand = true;
+        else if (p.t < .4) { [p.a, p.b] = [p.b, p.a]; [ia, ib] = [ib, ia]; p.t = 1 - p.t; }
+      }
       let A = W.nodes[ia], B = W.nodes[ib];
-      if (!p.waiting) p.t += dt * p.speed / (Math.hypot(B.x - A.x, B.z - A.z) || .01);
+      if (!p.waiting && !p.stand) p.t += dt * p.speed / (Math.hypot(B.x - A.x, B.z - A.z) || .01);
       if (p.t >= 1) {
         // a ajuns într-un punct: alege încotro merge mai departe (de obicei pe trotuar, uneori traversează)
         p.t = 0;
@@ -1462,12 +1617,13 @@ export class CityView {
         const walk = opts.filter(e => !e.cross);
         if (walk.length && Math.random() < .65) opts = walk;
         const e = opts[Math.random() * opts.length | 0];
-        p.a = p.b; p.b = W.nodes[e.to].key; p.cross = e.cross;
+        p.a = p.b; p.b = W.nodes[e.to].key; p.cross = e.cross; p.rail = e.rail;
         p.waiting = e.cross?.signal && !pedGreen(e.cross.signal) ? e.cross.signal : null;
         ia = ib; ib = e.to; A = W.nodes[ia]; B = W.nodes[ib];
       }
       p.x = A.x + (B.x - A.x) * p.t;
       p.z = A.z + (B.z - A.z) * p.t;
+      p.y = A.y + (B.y - A.y) * p.t;
       if (B.x !== A.x || B.z !== A.z) {
         let d = Math.atan2(B.x - A.x, B.z - A.z) - p.yaw;
         d = Math.atan2(Math.sin(d), Math.cos(d));
@@ -1480,12 +1636,12 @@ export class CityView {
   drawPerson(p, dt) {
     const T = PERSON_TYPES[p.type], P = this.personPools[p.type];
     if (!T) return;
-    const moving = !p.waiting && dt > 0;
+    const moving = !p.waiting && !p.stand && dt > 0;
     if (moving) p.step += dt * p.speed * (T.pedal ? 30 : 42);
     const sw = moving ? Math.sin(p.step) : 0;
     const bob = !T.pedal && moving ? Math.abs(sw) * .008 * (T.swing ?? 1) : 0;
     this.q.setFromAxisAngle(this.up, p.yaw);
-    this.mBase.compose(this.v.set(p.x, .025 + bob, p.z), this.q, this.s.set(1.3, 1.3, 1.3)); // puțin mai mari, ca să se vadă bine
+    this.mBase.compose(this.v.set(p.x, .025 + bob + (p.y || 0), p.z), this.q, this.s.set(1.3, 1.3, 1.3)); // puțin mai mari, ca să se vadă bine
     P.top.add(this.mBase, this.c.setHex(p.top));
     P.detail.add(this.mBase, this.c.setHex(p.skin));
     const limb = (pool, ox, oy, angle, hex) => {
@@ -1527,6 +1683,8 @@ export class CityView {
       inside.get(k).add(code);
     }
     const carStops = c => {
+      // bariera e lăsată: mașina se oprește în fața ei; cine a trecut deja de linie se grăbește să elibereze șinele
+      if (this.closed.has(key(c.to)) && c.t >= .1 && c.t < .3) return true;
       // în fața intersecției: intră doar dacă înăuntru nu e o mașină venită de pe altă stradă
       const ti = key(c.to);
       if (c.t >= .38 && c.t < .5 && this.interTiles?.has(ti)) {
@@ -1538,6 +1696,8 @@ export class CityView {
       const s = this.signalAt.get(key(c.to));
       return (s && light(s) !== 'green') || busy.has(key(c.to) * 10 + armCode(c.from[0] - c.to[0], c.from[1] - c.to[1]));
     };
+    // o mașină prinsă pe șine când vine trenul nu se mai oprește pentru nimic: trebuie să elibereze trecerea
+    const mustClear = c => (c.t < .7 && this.closed.has(key(c.from))) || (c.t > .3 && this.closed.has(key(c.to)));
     // mașinile țin distanță: dacă au o mașină în față, pe aceeași bandă și prea aproape, așteaptă (stau la rând)
     const grid = new Map(), cellKey = (x, z) => Math.floor(x) * 1000 + Math.floor(z);
     for (const c of this.cars) {
@@ -1552,7 +1712,7 @@ export class CityView {
       const hx = Math.sin(c.yaw), hz = Math.cos(c.yaw), gx = Math.floor(c.x), gz = Math.floor(c.z);
       for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) {
         for (const o of grid.get((gx + a) * 1000 + gz + b) || []) {
-          if (o === c) continue;
+          if (o === c || Math.abs((o.y || 0) - (c.y || 0)) > .2) continue; // una pe pod, alta pe dedesubt
           const dx = o.x - c.x, dz = o.z - c.z;
           const ahead = dx * hx + dz * hz, side = Math.abs(dx * hz - dz * hx);
           if (ahead > .01 && ahead < GAP && side < .13) return true; // pe aceeași bandă, în față
@@ -1569,7 +1729,7 @@ export class CityView {
     this.moveAlong(this.cars, dt, Math.min(MAX_CARS, cars, Math.floor((this.roads?.length || 0) * 1.2)),
       () => { const model = pickModel(); return { id: this.carId = (this.carId || 0) + 1, speed: .9 + Math.random() * .7, model, color: kinds[model].fixed ?? rnd(COL.car) }; },
       () => .15,
-      { hold: c => carStops(c) || tooClose(c) });
+      { hold: c => !mustClear(c) && (carStops(c) || tooClose(c)) });
     this.updatePeople(dt, Math.min(MAX_PEOPLE, people), light, phase);
     // becurile: cel aprins strălucește, celelalte sunt stinse
     const sp = this.signalPool;
@@ -1591,13 +1751,14 @@ export class CityView {
     for (const p of this.people) this.drawPerson(p, dt);
     for (const pool of all) pool.commit();
     this.updateTrains(dt);
+    this.updateBarriers(dt);
   }
 
   // trenurile merg pe șine; la capăt de linie se întorc
   updateTrains(dt) {
     const set = this.railSet, rails = this.rails || [], SP = .6;
     const isRail = (x, z) => x >= 0 && z >= 0 && x < N && z < N && !!set?.has(z * N + x);
-    const nbs = ([x, z]) => [[1, 0], [-1, 0], [0, 1], [0, -1]].map(([dx, dz]) => [x + dx, z + dz]).filter(([a, b]) => isRail(a, b));
+    const nbs = ([x, z]) => [[1, 0], [-1, 0], [0, 1], [0, -1]].filter(([dx, dz]) => this.link?.('rail', x, z, dx, dz)).map(([dx, dz]) => [x + dx, z + dz]);
     const same = (a, b) => a[0] === b[0] && a[1] === b[1];
     const want = rails.length >= 3 ? Math.min(MAX_TRAINS, 1 + (this.stations || 0)) : 0;
     const spawn = () => {
@@ -1611,14 +1772,30 @@ export class CityView {
     if (this.trains.length > want) this.trains.length = want;
     const pools = [...this.trainLayers.loco, ...this.trainLayers.wagon];
     for (const p of pools) p.n = 0;
+    // trecerile la nivel pe care e acum o mașină
+    const crossing = new Set(this.barriers.map(b => b.i)), carOn = new Set();
+    for (const c of this.cars) {
+      const f = c.from[1] * N + c.from[0], t = c.to[1] * N + c.to[0];
+      if (c.t < .7 && crossing.has(f)) carOn.add(f);
+      if (c.t > .3 && crossing.has(t)) carOn.add(t);
+    }
+    const closed = new Set();
     for (let k = 0; k < this.trains.length; k++) {
       let tr = this.trains[k];
       if (!tr.hist.slice(-2).every(([x, z]) => isRail(x, z))) { tr = this.trains[k] = spawn(); if (!tr) { this.trains.splice(k--, 1); continue; } }
       const B = tr.wagons * SP + .5;
-      tr.t += dt * tr.speed;
+      const head = tr.hist[tr.hist.length - 1], hk = head[1] * N + head[0];
+      // în fața trecerii: dacă o mașină n-a apucat să iasă de pe șine, trenul o așteaptă
+      // (cel mult 5 secunde, ca să nu rămână blocat)
+      const carAhead = tr.t >= .15 && tr.t < .5 && carOn.has(hk);
+      tr.wait = carAhead ? (tr.wait || 0) + dt : 0;
+      const blocked = carAhead && tr.wait < 5;
+      if (!blocked) tr.t += dt * tr.speed;
       for (let guard = 0; tr.t >= 1 && guard < 4; guard++) {
         const h = tr.hist, cur = h[h.length - 1], prev = h[h.length - 2];
-        const fwd = nbs(cur).filter(n => !same(n, prev));
+        // pe pod trenul merge doar drept înainte
+        const fwd = nbs(cur).filter(n => !same(n, prev)
+          && (!this.straight[cur[1] * N + cur[0]] || (n[0] - cur[0] === cur[0] - prev[0] && n[1] - cur[1] === cur[1] - prev[1])));
         if (fwd.length) {
           const straight = fwd.find(n => n[0] - cur[0] === cur[0] - prev[0] && n[1] - cur[1] === cur[1] - prev[1]);
           h.push(straight && Math.random() < .75 ? straight : fwd[Math.random() * fwd.length | 0]);
@@ -1635,6 +1812,13 @@ export class CityView {
       }
       if (tr.t >= 1) tr.t = .999;
       const h = tr.hist, p = h.length - 2 + tr.t;
+      // barierele se lasă cu 2 pătrățele înainte de tren și se ridică după ce trece ultimul vagon
+      for (let j = Math.max(0, Math.floor(p - tr.wagons * SP - .3)); j < h.length; j++) closed.add(h[j][1] * N + h[j][0]);
+      let ring = [h[h.length - 1]];
+      for (let step = 0; step < 2; step++) {
+        ring = ring.flatMap(nbs);
+        for (const [a, b] of ring) closed.add(b * N + a);
+      }
       for (let c = 0; c <= tr.wagons; c++) {
         const q = Math.max(0, p - c * SP), i = Math.min(Math.floor(q), h.length - 2), f = q - i;
         const a = h[i], b = h[i + 1], dx = b[0] - a[0], dz = b[1] - a[1], aim = Math.atan2(dx, dz);
@@ -1642,11 +1826,40 @@ export class CityView {
         d = Math.atan2(Math.sin(d), Math.cos(d));
         yaw += d * Math.min(1, dt * 7);
         tr.yaws[c] = yaw;
-        const o = { x: a[0] + dx * f - N / 2 + .5, z: a[1] + dz * f - N / 2 + .5, yaw };
+        const near = f < .5 ? a : b, ni = near[1] * N + near[0], sg = dx + dz;
+        const o = {
+          x: a[0] + dx * f - N / 2 + .5, z: a[1] + dz * f - N / 2 + .5, yaw,
+          y: sg ? this.heightOf('rail', ni, dx ? 0 : 1, (f < .5 ? f : f - 1) * sg) : 0,
+          pitch: sg ? Math.atan(this.slopeOf('rail', ni, dx ? 0 : 1) * sg) : 0,
+        };
         this.draw(c ? this.trainLayers.wagon : this.trainLayers.loco, o, .045, c ? [tr.wcolor, null] : [tr.color, null]);
       }
     }
     for (const p of pools) p.commit();
+    this.closed = new Set([...closed].filter(i => crossing.has(i)));
+  }
+
+  // brațul barierei coboară (unghiul 0 = orizontal) sau urcă (π/2 = vertical) încet; luminile roșii clipesc pe rând
+  updateBarriers(dt) {
+    const P = this.barrierPool, L = this.barrierLights, blink = Math.floor(performance.now() / 450) % 2, LEN = .38;
+    P.n = 0; L.n = 0;
+    for (const b of this.barriers) {
+      const down = this.closed.has(b.i), want = down ? 0 : Math.PI / 2;
+      b.a += Math.sign(want - b.a) * Math.min(Math.abs(want - b.a), dt * 2.2);
+      const ca = Math.cos(b.a), sa = Math.sin(b.a), yaw = Math.atan2(-b.hz, b.hx);
+      this.q.setFromAxisAngle(this.up, yaw).multiply(this.qx.setFromAxisAngle(this.zAxis, b.a));
+      for (let j = 0; j < 4; j++) { // patru dungi: roșu, alb, roșu, alb
+        const d = (j + .5) * LEN / 4;
+        this.m.compose(this.v.set(b.x + b.hx * ca * d, .22 + sa * d, b.z + b.hz * ca * d), this.q, this.s.set(LEN / 4, .025, .025));
+        P.add(this.m, this.c.setHex(j % 2 ? 0xffffff : 0xe53935));
+      }
+      for (const [j, o] of [[0, -.035], [1, .035]]) { // două lumini pe stâlp, aprinse pe rând
+        const on = down && blink === j;
+        this.m.compose(this.v.set(b.x - b.hx * .01 + b.hz * o, .16, b.z - b.hz * .01 - b.hx * o), this.q.identity(), this.s.set(.028, .028, .028));
+        L.add(this.m, this.c.setHex(on ? 0xff2a1f : 0x4a1210));
+      }
+    }
+    P.commit(); L.commit();
   }
 
   render(dt) {

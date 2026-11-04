@@ -8,6 +8,7 @@ export const ROAD_UPKEEP = 1; // $ pe lună pentru fiecare pătrățel de drum
 export const FOREST_CLEAR = 5; // cost în plus când construiești peste pădure
 export const BRIDGE_COST = 60; // un pătrățel de pod (drum peste apă)
 export const BRIDGE_UPKEEP = 3; // $ pe lună pentru fiecare pătrățel de pod
+export const BRIDGE_H = .5; // cât de sus e podul peste drum sau peste șine (trenul are cam .3)
 
 // locuitori / locuri de muncă pentru fiecare nivel de clădire (0 = zonă goală)
 export const RESIDENTS = [0, 8, 30, 90];
@@ -20,6 +21,8 @@ export const TOOLS = [
   { id: 'inspect', name: 'Info', icon: '🔍', cost: 0, mode: 'tap', help: 'Atinge un pătrățel ca să vezi detalii. Trage ca să muți harta.' },
   { id: 'road', name: 'Drum', icon: '🛣️', cost: 10, mode: 'line', help: 'Trage ca să construiești drum. Peste apă devine pod (60 $). Zonele cresc doar lângă drumuri.' },
   { id: 'rail', name: 'Cale ferată', icon: '🛤️', cost: 25, upkeep: 2, mode: 'line', help: 'Trage ca să pui șine. Peste un drum faci o trecere la nivel, peste apă un pod. Pe șine vin trenuri.' },
+  { id: 'flyover', name: 'Pod rutier', icon: '🌉', cost: 150, upkeep: 4, mode: 'line', bridge: 'road', help: 'Trage în linie dreaptă peste o cale ferată sau peste alt drum: capetele devin rampe, iar la mijloc se face podul. Mașinile trec pe sus, trenurile și mașinile de jos pe dedesubt, fără să se mai aștepte.' },
+  { id: 'viaduct', name: 'Pod de tren', icon: '🚝', cost: 200, upkeep: 5, mode: 'line', bridge: 'rail', help: 'Trage în linie dreaptă peste un drum: capetele devin rampe de cale ferată, iar trenul trece pe pod, pe deasupra mașinilor.' },
   { id: 'R', name: 'Locuințe', icon: '🏠', cost: 20, mode: 'rect', zone: true, help: 'Zonă rezidențială: aici se mută oamenii.' },
   { id: 'H', name: 'Blocuri', icon: '🏢', cost: 40, mode: 'rect', zone: true, help: 'Zonă pentru blocuri cu etaje: încap foarte mulți oameni. Au nevoie de drum, curent și apă; cresc mai înalte unde terenul e valoros.' },
   { id: 'C', name: 'Comerț', icon: '🏬', cost: 25, mode: 'rect', zone: true, help: 'Zonă comercială: magazine și birouri, dau locuri de muncă.' },
@@ -41,13 +44,13 @@ export const TOOLS = [
 ];
 export const TOOL = Object.fromEntries(TOOLS.map(t => [t.id, t]));
 
-export const KINDS = [null, 'road', 'R', 'C', 'I', 'power', 'water', 'park', 'police', 'fire', 'school', 'garden', 'farm', 'rail', 'crossing', 'station', 'H', 'wind', 'solar', 'ranch', 'fun'];
+export const KINDS = [null, 'road', 'R', 'C', 'I', 'power', 'water', 'park', 'police', 'fire', 'school', 'garden', 'farm', 'rail', 'crossing', 'station', 'H', 'wind', 'solar', 'ranch', 'fun', 'bridge'];
 export const KIND_NAME = {
   road: 'Drum', R: 'Zonă rezidențială', C: 'Zonă comercială', I: 'Zonă industrială', power: 'Centrală electrică',
   water: 'Turn de apă', park: 'Parc', police: 'Secție de poliție', fire: 'Stație de pompieri', school: 'Școală',
   garden: 'Curte cu flori', farm: 'Grădină de legume',
   fun: 'Parc de distracții', wind: 'Eoliană', solar: 'Parc de panouri solare', ranch: 'Fermă de animale',
-  H: 'Zonă de blocuri', rail: 'Cale ferată', crossing: 'Trecere la nivel cu calea ferată', station: 'Gară',
+  H: 'Zonă de blocuri', rail: 'Cale ferată', crossing: 'Trecere la nivel cu calea ferată', station: 'Gară', bridge: 'Pod',
 };
 // legumele: tipul depinde de pătrățel; prețul e pentru un pătrățel cules
 export const CROPS = ['Varză', 'Morcovi', 'Roșii', 'Dovleci', 'Porumb', 'Vinete', 'Grâu'];
