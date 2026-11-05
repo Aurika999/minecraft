@@ -1,4 +1,5 @@
 // Simularea orașului: teren, zone, servicii, creștere, buget. Fără grafică.
+import { newQuest } from './missions.js';
 import {
   N, START_MONEY, DAYS_PER_MONTH, ROAD_UPKEEP, FOREST_CLEAR, BRIDGE_COST, BRIDGE_UPKEEP, RESIDENTS, RESIDENTS_H, JOBS_C, JOBS_I,
   TOOL, KINDS, KIND_NAME, MONTHS, ANIMALS, CROPS, CROP_STAGES, HARVEST_PRICE,
@@ -53,6 +54,7 @@ export class City {
     this.tax = 9;
     this.lastMonth = null;
     this.harvest = 0; // banii din legumele culese luna aceasta
+    this.quest = newQuest(); // misiuni, stele, animale mângâiate, premiul zilei
     this.version = 0;
     this.events = [];
     this.demand = { R: 1, C: .25, I: .75 };
@@ -391,7 +393,7 @@ export class City {
     return {
       v: 1, seed: this.seed, money: this.money, day: this.day, tax: this.tax, lastMonth: this.lastMonth, harvest: this.harvest,
       terrain: Array.from(this.terrain), kind: this.kind.map(k => KINDS.indexOf(k)),
-      level: Array.from(this.level), variant: Array.from(this.variant),
+      level: Array.from(this.level), variant: Array.from(this.variant), quest: this.quest,
     };
   }
 
@@ -403,6 +405,7 @@ export class City {
     c.kind = o.kind.map(k => KINDS[k] ?? null);
     c.level.set(o.level);
     c.variant.set(o.variant);
+    if (o.quest && Array.isArray(o.quest.done)) c.quest = { ...newQuest(), ...o.quest, done: [...o.quest.done] };
     c.prepare();
     c.recompute();
     c.updateStats();

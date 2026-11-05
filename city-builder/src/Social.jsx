@@ -39,8 +39,14 @@ export function useSocial(g) {
   useEffect(() => {
     if (!user || !g) return;
     let timer = null;
+    let due = 0;
     const flush = () => { clearTimeout(timer); timer = null; S.saveCity(user.uid, g.homeCity()).catch(() => {}); };
-    g.onSave = () => { if (!timer) timer = setTimeout(flush, 8000); };
+    // când sunt prieteni în oraș, se salvează aproape imediat, ca ei să vadă construcțiile pe loc
+    g.onSave = () => {
+      const wait = g.roomBusy ? 1200 : 8000;
+      if (timer && due <= Date.now() + wait) return;
+      clearTimeout(timer); due = Date.now() + wait; timer = setTimeout(flush, wait);
+    };
     const onHide = () => { if (document.hidden && timer) flush(); };
     document.addEventListener('visibilitychange', onHide);
     return () => { g.onSave = null; clearTimeout(timer); document.removeEventListener('visibilitychange', onHide); };
@@ -71,12 +77,15 @@ export function SocialButton({ social, onClick }) {
 }
 
 // banda de sus în timpul unei vizite
-export function VisitBanner({ ui, g }) {
+export function VisitBanner({ ui, g, room }) {
   const v = ui.visiting, [liked, setLiked] = useState(false);
   useEffect(() => setLiked(false), [v?.uid]);
   return (
     <div className="visit-banner">
-      <span>🏝️ În vizită la <b>{v.name}</b></span>
+      <span>🏝️ În vizită la <b>{v.name}</b>
+        {ui.canBuild ? <small className="build-ok">🔨 poți construi (plătește {v.name})</small>
+          : room?.allowed && !room.hostHere ? <small className="build-ok off">🔨 construiești când {v.name} e acasă</small> : null}
+      </span>
       <button className="mini-btn like" disabled={liked} onClick={() => { setLiked(true); S.likeCity(v.uid).catch(() => {}); g.msg(`❤️ I-ai dat like orașului lui ${v.name}!`); }}>
         {liked ? '❤️ Ți-a plăcut' : '🤍 Îmi place'}
       </button>
@@ -147,7 +156,7 @@ function Friends({ social, ui, g, Modal, onClose }) {
         <div className="confirm">
           <p>Vizitezi orașul lui <b>{confirm.name}</b>.</p>
           <p className="big">🎟️ {confirm.ticket ? `${fmt(confirm.ticket)} $` : 'Gratis'}</p>
-          <p className="muted">Banii pentru bilet ies din orașul tău (ai {fmt(ui.homeMoney)} $) și intră în orașul lui {confirm.name}. În vizită poți privi tot, dar nu poți schimba nimic.</p>
+          <p className="muted">Banii pentru bilet ies din orașul tău (ai {fmt(ui.homeMoney)} $) și intră în orașul lui {confirm.name}. În vizită te poți plimba cu personajul tău 🚶 și vă vedeți unul pe altul.{confirm.builders?.[user.uid] ? ` ${confirm.name} ți-a dat voie să construiești la el 🔨.` : ' Nu poți schimba nimic, decât dacă îți dă voie să construiești 🔨.'}</p>
           <div className="menu-actions">
             <button className="primary" disabled={busy || confirm.ticket > ui.homeMoney} onClick={() => visit(confirm)}>
               {confirm.ticket > ui.homeMoney ? 'Nu ai destui bani' : confirm.ticket ? 'Plătește și intră' : 'Intră'}
@@ -157,15 +166,24 @@ function Friends({ social, ui, g, Modal, onClose }) {
         </div>
       ) : friends.length ? (
         <ul className="friends">
-          {friends.map(f => (
-            <li key={f.uid}>
-              <span className="avatar">{(f.name || '?')[0].toUpperCase()}</span>
-              <span className="who"><b>{f.name}</b><small>👥 {fmt(f.stats?.pop)} locuitori · ❤️ {fmt(f.likes)}</small></span>
-              <button className="primary small" disabled={busy || ui.visiting?.uid === f.uid} onClick={() => setConfirm(f)}>
-                Vizitează<small>{f.ticket ? `🎟️ ${fmt(f.ticket)} $` : 'gratis'}</small>
-              </button>
-            </li>
-          ))}
+          {friends.map(f => {
+            const on = S.isOnline(f), builder = !!profile.builders?.[f.uid];
+            const where = !on ? null : f.where === 'home' ? '🟢 e acasă acum' : f.where === user.uid ? '🟢 e la tine acum!' : '🟢 online';
+            return (
+              <li key={f.uid}>
+                <span className={'avatar' + (on ? ' online' : '')}>{(f.name || '?')[0].toUpperCase()}</span>
+                <span className="who"><b>{f.name}</b><small>{where ? <span className="on-now">{where}</span> : <>👥 {fmt(f.stats?.pop)} locuitori · ❤️ {fmt(f.likes)}</>}</small></span>
+                <button className={'mini-btn builder' + (builder ? ' on' : '')} disabled={busy}
+                  title={builder ? `${f.name} poate construi la tine (din banii tăi). Apasă ca să-i iei voia.` : `Dă-i voie lui ${f.name} să construiască în orașul tău`}
+                  onClick={() => run(() => S.setBuilder(user.uid, f.uid, !builder), builder ? `${f.name} nu mai poate construi la tine.` : `Acum ${f.name} poate construi în orașul tău când e în vizită (din banii tăi, dar fără să dărâme nimic).`)}>
+                  🔨{builder ? ' ✓' : ''}
+                </button>
+                <button className="primary small" disabled={busy || ui.visiting?.uid === f.uid} onClick={() => setConfirm(f)}>
+                  {f.where === 'home' && on ? 'Joacă-te' : 'Vizitează'}<small>{f.ticket ? `🎟️ ${fmt(f.ticket)} $` : 'gratis'}</small>
+                </button>
+              </li>
+            );
+          })}
         </ul>
       ) : <p className="muted">Încă nu ai prieteni. Dă-le codul tău (la „Adaugă”) sau scrie codul lor.</p>)}
 

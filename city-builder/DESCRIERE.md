@@ -264,6 +264,16 @@ Butonul **👥** din bara de sus deschide panoul de prieteni.
 
 **Siguranță:** regulile din `firestore.rules` lasă pe fiecare să scrie doar în orașul lui. Bugetul (bani, taxe, raportul lunii) stă separat, în `private/`, pe care îl citește doar proprietarul. Orașul tău îl pot vedea doar prietenii tăi. Un vizitator poate adăuga la tine doar prețul exact al biletului și un like. După ce ștergi o prietenie, celălalt nu-ți mai vede orașul.
 
+### 🚶 Joacă împreună în același oraș
+
+- **🚶 Plimbă-te** (butonul din stânga): apare personajul tău, cu numele deasupra. Pe calculator îl miști cu săgețile sau W A S D, iar pe telefon atingi locul unde vrei să ajungă. Personajul ocolește apa și clădirile, iar camera îl urmărește.
+- **În vizită vă vedeți unul pe altul:** personajele celor din același oraș se mișcă live. Când vine cineva, gazda primește mesajul „👋 … a venit în orașul tău!”.
+- **Emoji** (👋 ❤️ 😂 🎉 👍 😮 🐶 🏠): apare o bulă deasupra personajului, pe care o vede și celălalt. Nu se poate scrie text liber, ca să fie sigur pentru copii.
+- **👕** schimbă cum arată personajul și culoarea bluzei. **📸** salvează o poză cu ce se vede pe ecran.
+- **🟢 online:** în lista de prieteni vezi cine e acasă acum („e acasă acum”, „e la tine acum!”), iar butonul devine **Joacă-te**.
+- **🔨 Construiți împreună:** lângă fiecare prieten, gazda îi poate da voie să construiască la ea. Prietenul primește bara de unelte, dar fără buldozer, și construiește din banii gazdei, doar cât gazda e și ea în oraș. Construcția apare la amândoi după 1–2 secunde. Dacă gazda nu are bani, vizitatorul află de ce nu s-a putut.
+- **Siguranță:** doar prietenii intră în camera orașului. Construcțiile trimise de vizitatori le acceptă regulile Firestore doar dacă gazda a dat voie, și niciodată demolări.
+
 ### Pornirea prietenilor (o singură dată, gratuit)
 
 Fără acești pași jocul merge ca înainte, iar 👥 spune doar că funcția nu e pornită.
@@ -278,6 +288,19 @@ Fără acești pași jocul merge ca înainte, iar 👥 spune doar că funcția n
 
 ---
 
+## 📋 Misiuni, animale, sunete
+
+- **📋 Misiuni:** câte 3 odată, 23 în total, de la „10 pătrățele de drum” până la „3.000 de locuitori”. Fiecare are o bară de progres. La final primești bani și o ⭐, cu confetti și fanfară, iar misiunile terminate rămân ca insigne.
+- **🎁 Premiul zilei:** prima intrare din zi aduce 100 $, cu 100 $ în plus pentru fiecare zi la rând (cel mult 700 $).
+- **🐾 Animale de mângâiat:** atingi un animal de la fermă și el sare, scoate o ❤️ și se aude glasul lui. Când te plimbi cu personajul, animalele pe lângă care treci se mângâie singure.
+- **🔊 Sunete și muzică:** construcții, monede, păsărele ziua, greieri noaptea, claxoane, clopoțelul barierei, ploaia și o melodie veselă. Toate sunt făcute de joc, fără fișiere audio. 🔊 din bara de sus le oprește pe toate; din ☰ Meniu oprești separat sunetele și muzica.
+
+## 🌗 Zi și noapte, vreme
+
+- O zi întreagă durează cam 4 minute. Soarele și umbrele se mișcă, seara lumina devine portocalie, iar noaptea se aprind ferestrele, felinarele și farurile mașinilor.
+- Butonul **☀️ / 🌗** lângă butoanele de rotire: „Mereu zi” sau zi și noapte pe rând.
+- Din când în când plouă, iar iarna ninge. După o ploaie de zi apare un 🌈 curcubeu. Vremea de acum se vede lângă dată.
+
 ## Structura codului
 
 ```
@@ -288,12 +311,19 @@ city-builder/
 └── src/
     ├── main.jsx          pornește React
     ├── App.jsx           interfața: bara de sus, unelte, buget, meniu, ferestre
+    ├── Social.jsx        cont, prieteni, vizite, bilete
+    ├── Together.jsx      jocul împreună: cine e în oraș, construcții trimise gazdei
+    ├── Fun.jsx           misiuni, premii cu confetti, butoanele de sunet
     ├── styles.css        aspect, inclusiv pentru telefon
     └── game/
         ├── config.js     regulile: unelte, costuri, raze, niveluri
         ├── city.js       simularea: teren, creștere, cerere, buget, salvare
         ├── view.js       grafica 3D (three.js): teren, clădiri, mașini, cameră
-        └── engine.js     leagă totul: mouse/atingere, bucla jocului, sfaturi
+        ├── engine.js     leagă totul: mouse/atingere, bucla jocului, sfaturi, plimbarea, vremea
+        ├── avatars.js    personajele jucătorilor, cu nume și bule cu emoji
+        ├── missions.js   misiunile și premiul zilei
+        ├── sky.js        zi/noapte, ploaie, ninsoare, curcubeu, felinare și faruri
+        └── sound.js      sunetele și muzica (WebAudio)
 ```
 
 - **city.js** conține doar logica jocului, fără grafică. Poate fi testat separat.

@@ -5,6 +5,7 @@ import { N, ANIMALS, BRIDGE_H } from './config.js';
 import { animalGeometries, TINTS } from './animals.js';
 import { PERSON_TYPES, PERSON_COLORS } from './people.js';
 import { GRASS, WATER, FOREST, ZONES, bridgeOf } from './city.js';
+import { Sky, NIGHT } from './sky.js';
 
 const COL = {
   grass: [0x8fd14f, 0x89cc4a, 0x96d657], forest: 0x7cc444, water: 0x3fb6e8, road: 0x70757d, mark: 0xe9e4c8,
@@ -212,8 +213,9 @@ function facadeMaterial({ floor, cell, winW, winH, base = 0, top = .04, shop = 0
   const m = new THREE.MeshLambertMaterial();
   const f = n => n.toFixed(3);
   m.onBeforeCompile = sh => {
+    sh.uniforms.uNight = NIGHT;
     sh.vertexShader = sh.vertexShader
-      .replace('#include <common>', '#include <common>\nvarying vec3 vLoc; varying vec2 vSize; varying float vSide;')
+      .replace('#include <common>', '#include <common>\nvarying vec3 vLoc; varying vec2 vSize; varying float vSide; varying float vSeed;')
       .replace('#include <begin_vertex>', `#include <begin_vertex>
         vec3 sc = vec3(1.0);
         #ifdef USE_INSTANCING
@@ -223,10 +225,17 @@ function facadeMaterial({ floor, cell, winW, winH, base = 0, top = .04, shop = 0
         vec3 lp = transformed * sc;
         vLoc = vec3(zf ? lp.x : lp.z, lp.y, 0.0);
         vSize = vec2(zf ? sc.x : sc.z, sc.y);
-        vSide = abs(objectNormal.y) < .5 ? 1.0 : 0.0;`);
+        vSide = abs(objectNormal.y) < .5 ? 1.0 : 0.0;
+        vSeed = (zf ? objectNormal.z : objectNormal.x * 3.0) * 17.0;
+        #ifdef USE_INSTANCING
+          vSeed += instanceMatrix[3].x * 3.17 + instanceMatrix[3].z * 7.73;
+        #endif`);
     sh.fragmentShader = sh.fragmentShader
-      .replace('#include <common>', '#include <common>\nvarying vec3 vLoc; varying vec2 vSize; varying float vSide;')
+      .replace('#include <common>', '#include <common>\nvarying vec3 vLoc; varying vec2 vSize; varying float vSide; varying float vSeed; uniform float uNight;')
+      .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+        totalEmissiveRadiance += vec3(1.0, .76, .4) * winLit * uNight * 1.15;`)
       .replace('#include <color_fragment>', `#include <color_fragment>
+        float winLit = 0.0;
         if (vSide > .5) {
           float usable = max(vSize.x - .07, .01), h = vLoc.y;
           float cols = max(1.0, floor(usable / ${f(cell)}));
@@ -242,6 +251,10 @@ function facadeMaterial({ floor, cell, winW, winH, base = 0, top = .04, shop = 0
           diffuseColor.rgb *= 1.0 - ${f(line * .22)} * rows * step(fv, .06); // linia dintre etaje
           diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * .8, sill);
           diffuseColor.rgb = mix(diffuseColor.rgb, glass, win);
+          // noaptea, cam 6 ferestre din 10 au lumina aprinsă
+          float rnd = fract(sin(dot(vec3(floor(u), floor((h - ${f(base)}) / ${f(floor)}), vSeed), vec3(12.9898, 78.233, 37.719))) * 43758.5453);
+          winLit = win * step(.4, rnd);
+          diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * .45, win * (1.0 - winLit) * uNight);
         }`);
   };
   return m;
@@ -387,6 +400,7 @@ export class CityView {
     this.animalPools = Object.fromEntries(Object.entries(animalGeometries()).map(([id, geo]) =>
       [id, new Pool(scene, geo, 600, { material: new THREE.MeshLambertMaterial({ vertexColors: true }) })]));
     this.animals = new Map();
+    this.hearts = [];
     this.ranchSpots = [];
     this.xAxis = new THREE.Vector3(1, 0, 0);
     this.turbines = [];
@@ -421,6 +435,10 @@ export class CityView {
     this.m = new THREE.Matrix4(); this.q = new THREE.Quaternion(); this.qx = new THREE.Quaternion(); this.c = new THREE.Color();
     this.v = new THREE.Vector3(); this.s = new THREE.Vector3(); this.up = new THREE.Vector3(0, 1, 0);
     this.ray = new THREE.Raycaster(); this.plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+    // cerul: zi și noapte, ploaie, ninsoare, curcubeu, felinare și faruri
+    this.sky = new Sky(this);
+    this.skyState = { time: .38, rain: 0, snow: 0, bow: 0 };
+    this.lamps = [];
     this.resize();
   }
 
@@ -689,6 +707,7 @@ export class CityView {
 
   rebuild(city) {
     for (const p of Object.values(this.pools)) p.n = 0;
+    this.lamps = [];
     const roads = [], rails = [];
     this.turbines = [];
     this.ranchSpots = [];
@@ -826,6 +845,7 @@ export class CityView {
               this.part('cyl', lx, 0, lz, .022, .38, .022, 0x4a4f57);
               this.part('box', lx - dx * .05, .37, lz - dz * .05, dx ? .12 : .03, .02, dz ? .12 : .03, 0x4a4f57);
               this.part('flower', lx - dx * .09, .345, lz - dz * .09, .035, .03, .035, 0xfff1b0);
+              this.lamps.push([lx - dx * .09, .35, lz - dz * .09]);
             }
             continue;
           }
@@ -890,6 +910,7 @@ export class CityView {
     this.rails = rails;
     this.railSet = new Set(rails.map(([x, z]) => z * N + x));
     this.stations = stations;
+    this.sky.setLamps(this.lamps);
     // păstrează cum erau barierele (sus sau jos), ca să nu sară la reconstruire
     const old = new Map(this.barriers.map(b => [`${b.i}:${b.hx}:${b.hz}`, b.a]));
     for (const b of barriers) b.a = old.get(`${b.i}:${b.hx}:${b.hz}`) ?? b.a;
@@ -988,8 +1009,11 @@ export class CityView {
           }
         }
         an.phase += dt;
-        const y = walking ? Math.abs(Math.sin(an.phase * (a.bird ? 14 : 8))) * (a.bird ? .006 : .004) : 0;
+        let y = walking ? Math.abs(Math.sin(an.phase * (a.bird ? 14 : 8))) * (a.bird ? .006 : .004) : 0;
+        // mângâiat: sare de bucurie (de două ori)
+        if (an.jump > 0) { an.jump = Math.max(0, an.jump - dt); y += Math.abs(Math.sin((1 - an.jump) * Math.PI * 2)) * .09; }
         const wx = spot.cx + an.lx * spot.cs + an.lz * spot.sn, wz = spot.cz - an.lx * spot.sn + an.lz * spot.cs;
+        an.wx = wx; an.wz = wz;
         this.q.setFromAxisAngle(this.up, an.yaw + spot.r);
         if (a.bird && !walking) this.q.multiply(this.spinQ.setFromAxisAngle(this.xAxis, Math.max(0, Math.sin(an.phase * 3)) * .5));
         this.m.compose(this.v.set(wx, y, wz), this.q, this.s.set(1, 1, 1));
@@ -997,6 +1021,50 @@ export class CityView {
       }
     }
     for (const p of Object.values(this.animalPools)) p.commit();
+    // inimioarele urcă și se sting
+    for (let k = this.hearts.length - 1; k >= 0; k--) {
+      const h = this.hearts[k];
+      h.t += dt;
+      h.sprite.position.y = .25 + h.t * .45;
+      h.sprite.material.opacity = Math.max(0, 1 - h.t / 1.4);
+      if (h.t > 1.4) { this.scene.remove(h.sprite); h.sprite.material.dispose(); this.hearts.splice(k, 1); }
+    }
+  }
+
+  // cel mai apropiat animal de un punct de pe hartă (sau null): îl face să sară și scoate o inimioară
+  petAt(p, reach = .45) {
+    if (!p) return null;
+    let best = null, bd = reach;
+    for (const { type, list } of this.animals.values())
+      for (const an of list) {
+        if (an.wx == null) continue;
+        const d = Math.hypot(an.wx - p.x, an.wz - p.z);
+        if (d < bd) { bd = d; best = { an, id: ANIMALS[type].id, name: ANIMALS[type].name }; }
+      }
+    if (!best) return null;
+    best.an.jump = 1;
+    best.an.wait = Math.max(best.an.wait, 1.2);
+    if (!this.heartTex) {
+      const c = document.createElement('canvas'); c.width = c.height = 64;
+      const x = c.getContext('2d'); x.font = '52px "Segoe UI Emoji", system-ui, sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
+      x.fillText('❤️', 32, 36);
+      this.heartTex = new THREE.CanvasTexture(c);
+      this.heartTex.colorSpace = THREE.SRGBColorSpace;
+    }
+    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.heartTex, transparent: true, depthTest: false }));
+    sprite.scale.set(.28, .28, 1);
+    sprite.renderOrder = 11;
+    sprite.position.set(best.an.wx, .25, best.an.wz);
+    this.scene.add(sprite);
+    this.hearts.push({ sprite, t: 0 });
+    return best;
+  }
+
+  // e o trecere la nivel închisă aproape de mijlocul ecranului? (pentru clopoțel)
+  bellNear() {
+    if (!this.closed.size) return false;
+    const r = VIEW / this.zoom * .8;
+    return this.barriers.some(b => this.closed.has(b.i) && Math.hypot(b.x - this.target.x, b.z - this.target.z) < r);
   }
 
   // clădirile se întorc cu fața spre un drum vecin
@@ -1879,6 +1947,7 @@ export class CityView {
       p.add(this.m, this.white);
     }
     p.commit();
+    this.sky.update(dt, this.skyState);
     this.renderer.render(this.scene, this.camera);
   }
 

@@ -6,6 +6,8 @@
 //   cities/{uid}                orașul salvat (City.toJSON, ca text)
 //   friendRequests/{from_to}    cereri de prietenie
 //   visits/{id}                 cine a vizitat pe cine și cât a plătit
+//   rooms/{host}/players/{uid}  cine e acum în orașul gazdei și unde e personajul lui
+//   rooms/{host}/ops/{id}       construcții trimise gazdei de prietenii care au voie să construiască
 import { initializeApp } from 'firebase/app';
 import {
   getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup,
@@ -13,7 +15,7 @@ import {
 } from 'firebase/auth';
 import {
   getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, query, where, getDocs,
-  onSnapshot, writeBatch, runTransaction, serverTimestamp, addDoc, increment,
+  onSnapshot, writeBatch, runTransaction, serverTimestamp, addDoc, increment, deleteField,
 } from 'firebase/firestore';
 import { connectAuthEmulator } from 'firebase/auth';
 import { connectFirestoreEmulator } from 'firebase/firestore';
@@ -137,16 +139,24 @@ export async function removeFriend(me, fid) {
   await b.commit();
 }
 
-// lista de prieteni, cu profilul fiecăruia (nume, statistici, preț bilet)
+// lista de prieteni, cu profilul fiecăruia (nume, statistici, preț bilet, dacă e online), mereu la zi
 export function watchFriends(uid, cb) {
-  return onSnapshot(collection(db, 'users', uid, 'friends'), async s => {
-    const list = await Promise.all(s.docs.map(async d => {
-      const p = await getDoc(doc(db, 'users', d.id));
-      return p.exists() ? { uid: d.id, ...p.data() } : null;
-    }));
-    cb(list.filter(Boolean).sort((a, b) => (b.stats?.pop || 0) - (a.stats?.pop || 0)));
+  const profiles = new Map(), subs = new Map();
+  const send = () => cb([...profiles.values()].filter(Boolean).sort((a, b) => (b.stats?.pop || 0) - (a.stats?.pop || 0)));
+  const stop = onSnapshot(collection(db, 'users', uid, 'friends'), s => {
+    const ids = new Set(s.docs.map(d => d.id));
+    for (const [id, off] of subs) if (!ids.has(id)) { off(); subs.delete(id); profiles.delete(id); }
+    for (const id of ids) if (!subs.has(id)) {
+      profiles.set(id, null);
+      subs.set(id, onSnapshot(doc(db, 'users', id), p => { profiles.set(id, p.exists() ? { uid: id, ...p.data() } : null); send(); }, () => {}));
+    }
+    send();
   });
+  return () => { stop(); for (const off of subs.values()) off(); };
 }
+
+// e online = a dat semn de viață în ultimul minut și jumătate
+export const isOnline = p => !!p?.seen && Date.now() - p.seen < 90000;
 
 // ---------- vizite și bilete ----------
 
@@ -192,6 +202,42 @@ export async function collectEarnings(uid) {
     tx.update(ref, { pending: 0, pendingVisitors: 0 });
     return { amount: d.pending || 0, visitors: d.pendingVisitors || 0 };
   });
+}
+
+// ---------- împreună în același oraș ----------
+
+// semn de viață în profil: prietenii văd „🟢 online” și unde ești (acasă sau la cineva)
+export const heartbeat = (uid, where) => updateDoc(doc(db, 'users', uid), { seen: Date.now(), where: where || null });
+
+const playerRef = (host, uid) => doc(db, 'rooms', host, 'players', uid);
+// at = ora mea (nu a serverului), ca să se vadă repede cine a plecat fără să-și ia rămas bun
+export const putPlayer = (host, uid, data) => setDoc(playerRef(host, uid), { ...data, at: Date.now() });
+export const dropPlayer = (host, uid) => deleteDoc(playerRef(host, uid)).catch(() => {});
+export const watchPlayers = (host, cb) =>
+  onSnapshot(collection(db, 'rooms', host, 'players'), s => cb(s.docs.map(d => ({ uid: d.id, ...d.data() }))), () => cb([]));
+
+// gazda dă sau ia voie unui prieten să construiască la ea
+export const setBuilder = (me, fid, on) => updateDoc(doc(db, 'users', me), { [`builders.${fid}`]: on ? true : deleteField() });
+
+// vizitatorul trimite construcția; gazda o face (sau o refuză) când o primește
+export const sendOp = (host, by, byName, tool, tiles) =>
+  addDoc(collection(db, 'rooms', host, 'ops'), { by, byName, tool, tiles: tiles.flat(), status: 'pending', at: serverTimestamp() });
+export const watchPendingOps = (host, cb) =>
+  onSnapshot(query(collection(db, 'rooms', host, 'ops'), where('status', '==', 'pending')), s =>
+    cb(s.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (a.at?.toMillis?.() || 0) - (b.at?.toMillis?.() || 0))), () => {});
+export const markOp = (host, id, status, reason = null) => updateDoc(doc(db, 'rooms', host, 'ops', id), { status, reason });
+// vizitatorul află ce s-a întâmplat cu construcțiile lui
+export const watchMyOps = (host, me, cb) =>
+  onSnapshot(query(collection(db, 'rooms', host, 'ops'), where('by', '==', me)), s =>
+    cb(s.docChanges().filter(c => c.type === 'modified').map(c => ({ id: c.doc.id, ...c.doc.data() }))), () => {});
+
+// orașul unui prieten, la zi: se schimbă când gazda construiește
+export function watchCity(uid, cb) {
+  return onSnapshot(doc(db, 'cities', uid), snap => {
+    if (!snap.exists()) return;
+    const city = JSON.parse(snap.data().data);
+    cb(Object.assign(city, { money: 0, tax: 9, lastMonth: null, harvest: 0 }), snap.data().data);
+  }, () => {});
 }
 
 // mesaj prietenos pentru erorile Firebase cele mai dese

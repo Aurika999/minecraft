@@ -3,6 +3,8 @@ import { Engine } from './game/engine.js';
 import { TOOLS, TOOL, ANIMALS } from './game/config.js';
 import { useInstall, isIOS, isSecure } from './install.js';
 import { useSocial, SocialButton, SocialPanel, VisitBanner } from './Social.jsx';
+import { useRoom, PlayBar } from './Together.jsx';
+import { MissionsButton, MissionsPanel, Party, SoundToggles, SoundButton } from './Fun.jsx';
 
 const fmt = n => Math.round(n).toLocaleString('ro-RO');
 
@@ -15,27 +17,32 @@ export default function App() {
   useEffect(() => {
     const e = new Engine(mountRef.current, setUi);
     engineRef.current = e;
+    if (import.meta.env.DEV) window.__game = e; // pentru testele automate
     return () => { e.dispose(); engineRef.current = null; };
   }, []);
 
   const g = engineRef.current;
   const social = useSocial(g);
+  const room = useRoom(social, g, ui);
   return (
     <>
       <div ref={mountRef} className="view" />
       {ui && g && (
         <>
           <TopBar ui={ui} g={g} setPanel={setPanel} social={social} />
-          {ui.readOnly && <VisitBanner ui={ui} g={g} />}
+          {ui.readOnly && <VisitBanner ui={ui} g={g} room={room} />}
+          <PlayBar ui={ui} g={g} room={room} />
           <Messages list={ui.messages} />
           {ui.info && <Info info={ui.info} g={g} money={ui.money} readOnly={ui.readOnly} onClose={() => g.select(null)} />}
-          <MapButtons g={g} low={!toolsOpen || ui.readOnly} />
-          {/* în vizită nu se construiește, deci nu există bară de unelte */}
-          {!ui.readOnly && <Toolbar ui={ui} g={g} open={toolsOpen} setOpen={setToolsOpen} />}
+          <MapButtons g={g} sky={ui.sky} low={!toolsOpen || (ui.readOnly && !ui.canBuild)} />
+          {/* în vizită se construiește doar cu voia gazdei (și fără buldozer) */}
+          {(!ui.readOnly || ui.canBuild) && !ui.walking && <Toolbar ui={ui} g={g} open={toolsOpen} setOpen={setToolsOpen} />}
           {panel === 'social' && <SocialPanel social={social} ui={ui} g={g} Modal={Modal} onClose={() => setPanel(null)} />}
           {panel === 'budget' && <Budget ui={ui} g={g} onClose={() => setPanel(null)} />}
           {panel === 'menu' && <Menu g={g} onClose={() => setPanel(null)} onInstall={() => setPanel('install')} />}
           {panel === 'install' && <InstallHelp onClose={() => setPanel(null)} />}
+          {panel === 'missions' && <MissionsPanel ui={ui} Modal={Modal} onClose={() => setPanel(null)} />}
+          {ui.celebrate && <Party key={ui.celebrate.id} p={ui.celebrate} g={g} />}
           {ui.welcome && <Welcome onStart={() => g.closeWelcome()} onInstall={() => setPanel('install')} />}
         </>
       )}
@@ -59,7 +66,7 @@ function TopBar({ ui, g, setPanel, social }) {
         <span className="chip" title="Populație">👥 {fmt(ui.pop)}</span>
         <span className="chip" title="Locuri de muncă">💼 {fmt(ui.jobs)}</span>
         <span className="chip" title="Mulțumire">{ui.happiness > .66 ? '😊' : ui.happiness > .4 ? '😐' : '😟'} {Math.round(ui.happiness * 100)}%</span>
-        <span className="chip date">📅 {ui.date}</span>
+        <span className="chip date" title="Data și vremea">{ui.sky.icon} {ui.date}</span>
       </div>
       <div className="controls">
         {/* în vizită timpul și bugetul sunt ale prietenului, deci se ascund */}
@@ -70,9 +77,11 @@ function TopBar({ ui, g, setPanel, social }) {
             ))}
           </div>
         )}
+        {!ui.readOnly && <MissionsButton ui={ui} onClick={() => setPanel('missions')} />}
+        <SoundButton />
         <SocialButton social={social} onClick={() => setPanel('social')} />
         <InstallButton small onHelp={() => setPanel('install')} />
-        {!ui.readOnly && <button className="icon" onClick={() => setPanel('budget')} title="Buget" aria-label="Buget">📊</button>}
+        {!ui.readOnly && <button className="icon hide-sm" onClick={() => setPanel('budget')} title="Buget" aria-label="Buget">📊</button>}
         {!ui.readOnly && <button className="icon" onClick={() => setPanel('menu')} title="Meniu" aria-label="Meniu">☰</button>}
       </div>
     </header>
@@ -170,9 +179,13 @@ function Meter({ label, v, good }) {
   );
 }
 
-function MapButtons({ g, low }) {
+function MapButtons({ g, sky, low }) {
   return (
     <div className={'mapbtns' + (low ? ' low' : '')}>
+      <button className="icon sky-btn" onClick={() => g.setSkyMode(sky.mode === 'day' ? 'auto' : 'day')}
+        title={sky.mode === 'day' ? 'Pornește ziua și noaptea' : 'Mereu zi (fără noapte)'} aria-label="Zi și noapte">
+        {sky.mode === 'day' ? '☀️' : '🌗'}
+      </button>
       <button className="icon" onClick={() => g.rotate(-1)} title="Rotește stânga (Q)" aria-label="Rotește stânga">⟲</button>
       <button className="icon" onClick={() => g.rotate(1)} title="Rotește dreapta (E)" aria-label="Rotește dreapta">⟳</button>
       <button className="icon" onClick={() => g.zoom(1.25)} title="Apropie" aria-label="Apropie">＋</button>
@@ -184,6 +197,7 @@ function MapButtons({ g, low }) {
 // bara de jos e strânsă: se deschide doar când vrei să construiești, apoi se strânge iar după ce alegi unealta
 function Toolbar({ ui, g, open, setOpen }) {
   const t = TOOL[ui.tool], building = ui.tool !== 'inspect';
+  const tools = ui.readOnly ? TOOLS.filter(x => x.id !== 'bulldoze') : TOOLS, poor = !ui.readOnly && ui.previewCost > ui.money;
   const choose = id => { g.setTool(id); setOpen(false); };
   if (!open) {
     return (
@@ -193,7 +207,7 @@ function Toolbar({ ui, g, open, setOpen }) {
             <span className="mini-tool">{t.icon} <b>{t.name}</b></span>
             <span className="mini-help">
               {t.help}
-              {ui.previewCost > 0 && <span className={'cost' + (ui.previewCost > ui.money ? ' neg' : '')}> · Cost: {fmt(ui.previewCost)} $</span>}
+              {ui.previewCost > 0 && <span className={'cost' + (poor ? ' neg' : '')}> · Cost: {fmt(ui.previewCost)} ${ui.readOnly ? ` (plătește ${ui.visiting?.name})` : ''}</span>}
             </span>
             <button className="mini-btn" onClick={() => setOpen(true)}>🔨 Schimbă</button>
             <button className="mini-btn done" onClick={() => g.setTool('inspect')} title="Termină de construit (Esc)">✕ Gata</button>
@@ -212,7 +226,7 @@ function Toolbar({ ui, g, open, setOpen }) {
           <button className="mini-btn" onClick={() => setOpen(false)}>▼ Ascunde</button>
         </div>
         <div className="tools">
-          {TOOLS.map(tool => (
+          {tools.map(tool => (
             <button key={tool.id} className={'tool' + (ui.tool === tool.id ? ' on' : '')} onClick={() => choose(tool.id)} title={tool.help}>
               <span className="ti">{tool.icon}</span>
               <span className="tn">{tool.name}</span>
@@ -334,6 +348,7 @@ function Menu({ g, onClose, onInstall }) {
           if (confirm('Sigur începi un oraș nou? Orașul de acum se pierde.')) { g.newCity(); onClose(); }
         }}>Oraș nou</button>
       </div>
+      <SoundToggles />
       <GuideLink />
       <h3>Controale</h3>
       <ul className="help">

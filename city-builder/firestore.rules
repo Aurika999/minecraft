@@ -57,6 +57,27 @@ service cloud.firestore {
       allow delete: if signedIn() && (resource.data.to == request.auth.uid || resource.data.from == request.auth.uid);
     }
 
+    // cine e acum în orașul gazdei (personajele): fiecare își scrie doar locul lui,
+    // și doar acasă la el sau la un prieten; îi văd gazda și prietenii ei
+    match /rooms/{host}/players/{pid} {
+      allow read: if isMe(host) || isFriendOf(host);
+      allow create, update: if isMe(pid) && (pid == host || isFriendOf(host));
+      allow delete: if isMe(pid) || isMe(host);
+    }
+
+    // construcții trimise gazdei: doar de prietenii cărora gazda le-a dat voie, fără demolări;
+    // doar gazda le face (sau le refuză) și le șterge
+    match /rooms/{host}/ops/{id} {
+      allow read: if isMe(host) || (signedIn() && resource.data.by == request.auth.uid);
+      allow create: if signedIn() && request.resource.data.by == request.auth.uid
+        && request.resource.data.status == 'pending'
+        && request.resource.data.tool is string && request.resource.data.tool != 'bulldoze'
+        && request.resource.data.tiles is list && request.resource.data.tiles.size() <= 4608
+        && isFriendOf(host)
+        && get(/databases/$(db)/documents/users/$(host)).data.get('builders', {}).get(request.auth.uid, false) == true;
+      allow update, delete: if isMe(host);
+    }
+
     // jurnalul vizitelor: îl scrie vizitatorul, îl citește gazda
     match /visits/{id} {
       allow create: if signedIn() && request.resource.data.visitor == request.auth.uid && isFriendOf(request.resource.data.host);

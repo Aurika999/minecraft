@@ -217,3 +217,62 @@ p.center { text-align: center; }
   .info { top: 60px; bottom: auto; }
   .mapbtns { bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 }
+
+/* joacă împreună: bara din stânga (plimbare, emoji, personaj, poză) */
+.playbar {
+  position: fixed; left: calc(10px + env(safe-area-inset-left, 0px)); top: 50%; transform: translateY(-50%); z-index: 4;
+  display: flex; flex-direction: column; align-items: flex-start; gap: 6px;
+}
+.playbar .walk { width: 52px; height: 52px; font-size: 26px; border-radius: 16px; }
+.playbar .walk.on { background: #ffe9a8; }
+.playbar .here { background: #2e9d55; color: #fff; font-weight: 700; font-size: 13px; padding: 3px 8px; border-radius: 10px; box-shadow: var(--shadow); }
+.playbar .emojis { display: grid; grid-template-columns: repeat(2, 38px); gap: 4px; }
+.playbar .emojis .icon { font-size: 19px; }
+.playbar .dress { position: absolute; left: 100%; margin-left: 8px; bottom: 0; width: 230px; display: grid; gap: 8px; }
+.dress .looks, .dress .shirts { display: flex; flex-wrap: wrap; gap: 6px; }
+.dress .looks button { font-size: 24px; width: 44px; height: 44px; border-radius: 12px; background: rgba(0, 0, 0, .06); }
+.dress .shirts button { width: 28px; height: 28px; border-radius: 50%; border: 3px solid #fff; box-shadow: 0 0 0 1px rgba(0, 0, 0, .2); }
+.dress button.on { box-shadow: 0 0 0 3px var(--accent); }
+.visit-banner .build-ok { display: block; font-size: 12px; opacity: .95; }
+.visit-banner .build-ok.off { opacity: .75; }
+.mini-btn.builder { background: rgba(0, 0, 0, .07); color: var(--ink); }
+.mini-btn.builder.on { background: #ffe9a8; }
+.avatar.online { box-shadow: 0 0 0 3px #2ecc71; }
+.on-now { color: var(--pos); font-weight: 700; }
+@media (max-width: 640px) {
+  .playbar { top: auto; bottom: calc(150px + env(safe-area-inset-bottom, 0px)); transform: none; }
+  .playbar .emojis { grid-template-columns: repeat(4, 38px); }
+  .playbar .dress { left: 0; margin-left: 0; bottom: 100%; margin-bottom: 8px; }
+}
+
+/* misiuni, premii, sunet */
+.badge.star { background: #f5b400; right: auto; left: 22px; top: -6px; }
+.stars-line { font-size: 16px; margin: 6px 0 10px; }
+.missions { list-style: none; padding: 0; margin: 0 0 10px; display: grid; gap: 8px; }
+.missions li { display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 12px; background: rgba(0, 0, 0, .04); }
+.missions .mi { font-size: 28px; }
+.missions .mt { flex: 1; display: grid; gap: 4px; }
+.missions .mbar { height: 9px; border-radius: 5px; background: rgba(0, 0, 0, .1); overflow: hidden; }
+.missions .mbar i { display: block; height: 100%; background: linear-gradient(90deg, #ffb300, #43a047); border-radius: 5px; transition: width .4s; }
+.missions small { color: var(--muted); }
+.missions .mr { font-weight: 800; color: var(--pos); text-align: right; display: grid; }
+.badges { display: flex; flex-wrap: wrap; gap: 6px; font-size: 26px; }
+.badges span { background: #fff6d6; border-radius: 50%; width: 42px; height: 42px; display: grid; place-items: center; box-shadow: 0 0 0 2px #f5b400; }
+.party { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; pointer-events: auto; }
+.confetti { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.confetti i { position: absolute; top: -20px; border-radius: 2px; animation: fall linear forwards; }
+@keyframes fall { to { top: 105%; transform: rotate(720deg) translateX(40px); } }
+.prize { text-align: center; min-width: 260px; max-width: calc(100vw - 32px); animation: pop .45s cubic-bezier(.2, 1.6, .4, 1); }
+.prize-icon { font-size: 64px; line-height: 1.1; }
+.prize h2 { margin: 6px 0; }
+.prize-money { font-size: 30px; font-weight: 900; color: var(--pos); margin: 6px 0 0; }
+@keyframes pop { from { transform: scale(.3); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.sound-toggles { display: flex; gap: 8px; margin: 10px 0; }
+.sound-toggles .on { background: #e3f2ff; }
+@media (max-width: 640px) { .hide-sm { display: none !important; } }
+@media (max-width: 420px) {
+  .controls { gap: 4px; }
+  .controls .icon { width: 33px; height: 33px; font-size: 16px; }
+  .speeds button { padding-left: 5px; padding-right: 5px; min-width: 32px; }
+}
+.mapbtns .sky-btn { grid-column: span 2; width: auto; border-radius: 19px; }
