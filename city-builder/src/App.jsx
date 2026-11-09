@@ -54,20 +54,6 @@ function TopBar({ ui, g, setPanel, social }) {
   const speeds = [['⏸', 'Pauză'], ['▶', 'Normal'], ['▶▶', 'Rapid'], ['▶▶▶', 'Foarte rapid']];
   return (
     <header className="topbar">
-      <div className="stats">
-        {/* în vizită banii și bugetul prietenului rămân secrete: se văd doar banii tăi */}
-        {ui.readOnly ? (
-          <span className="chip" title="Banii din orașul tău">💰 {fmt(ui.homeMoney)} $ <small className="mine">ai tu</small></span>
-        ) : (
-          <button className={'chip money' + (ui.money < 0 ? ' neg' : '')} onClick={() => setPanel('budget')} title="Buget">
-            💰 {fmt(ui.money)} $
-          </button>
-        )}
-        <span className="chip" title="Populație">👥 {fmt(ui.pop)}</span>
-        <span className="chip" title="Locuri de muncă">💼 {fmt(ui.jobs)}</span>
-        <span className="chip" title="Mulțumire">{ui.happiness > .66 ? '😊' : ui.happiness > .4 ? '😐' : '😟'} {Math.round(ui.happiness * 100)}%</span>
-        <span className="chip date" title="Data și vremea">{ui.sky.icon} {ui.date}</span>
-      </div>
       <div className="controls">
         {/* în vizită timpul și bugetul sunt ale prietenului, deci se ascund */}
         {!ui.readOnly && (
@@ -81,7 +67,7 @@ function TopBar({ ui, g, setPanel, social }) {
         <SoundButton />
         <SocialButton social={social} onClick={() => setPanel('social')} />
         <InstallButton small onHelp={() => setPanel('install')} />
-        {!ui.readOnly && <button className="icon hide-sm" onClick={() => setPanel('budget')} title="Buget" aria-label="Buget">📊</button>}
+        {!ui.readOnly && <button className="icon" onClick={() => setPanel('budget')} title="Buget" aria-label="Buget">📊</button>}
         {!ui.readOnly && <button className="icon" onClick={() => setPanel('menu')} title="Meniu" aria-label="Meniu">☰</button>}
       </div>
     </header>
@@ -264,6 +250,7 @@ function Budget({ ui, g, onClose }) {
             <tr><td>Taxe încasate</td><td className="pos">+{fmt(m.income)} $</td></tr>
             {m.energy > 0 && <tr><td>Energie vândută</td><td className="pos">+{fmt(m.energy)} $</td></tr>}
             {m.tickets > 0 && <tr><td>Bilete la parcul de distracții</td><td className="pos">+{fmt(m.tickets)} $</td></tr>}
+            {m.business > 0 && <tr><td>Afaceri (cafenele, benzinării, parcări, aeroport)</td><td className="pos">+{fmt(m.business)} $</td></tr>}
             {m.ranch > 0 && <tr><td>Produse de la ferme</td><td className="pos">+{fmt(m.ranch)} $</td></tr>}
             {m.farm > 0 && <tr><td>Legume vândute</td><td className="pos">+{fmt(m.farm)} $</td></tr>}
             <tr><td>Întreținere drumuri</td><td className="neg">−{fmt(m.roads)} $</td></tr>
@@ -278,6 +265,14 @@ function Budget({ ui, g, onClose }) {
       </label>
       <p className="muted">Taxe mari aduc bani, dar oamenii și firmele vin mai greu. 9% e echilibrat.</p>
       <Demand d={ui.demand} />
+      {/* cifrele orașului (mutate aici din colțul de sus) */}
+      <div className="city-stats">
+        <span className={'chip' + (ui.money < 0 ? ' neg' : '')} title="Bani">💰 {fmt(ui.money)} $</span>
+        <span className="chip" title="Populație">👥 {fmt(ui.pop)}</span>
+        <span className="chip" title="Locuri de muncă">💼 {fmt(ui.jobs)}</span>
+        <span className="chip" title="Mulțumire">{ui.happiness > .66 ? '😊' : ui.happiness > .4 ? '😐' : '😟'} {Math.round(ui.happiness * 100)}%</span>
+        <span className="chip" title="Data și vremea">{ui.sky.icon} {ui.date}</span>
+      </div>
     </Modal>
   );
 }

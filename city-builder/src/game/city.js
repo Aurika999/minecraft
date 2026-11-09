@@ -65,7 +65,7 @@ export class City {
     this.nearWater = new Uint8Array(n);
     this.value = new Float32Array(n);
     this.pollution = new Float32Array(n);
-    this.cover = { police: new Float32Array(n), fire: new Float32Array(n), school: new Float32Array(n), park: new Float32Array(n), garden: new Float32Array(n), station: new Float32Array(n), fun: new Float32Array(n) };
+    this.cover = { police: new Float32Array(n), fire: new Float32Array(n), school: new Float32Array(n), park: new Float32Array(n), garden: new Float32Array(n), station: new Float32Array(n), fun: new Float32Array(n), cafe: new Float32Array(n), parking: new Float32Array(n), airport: new Float32Array(n) };
   }
 
   static create(seed = (Math.random() * 1e9) | 0) {
@@ -158,10 +158,11 @@ export class City {
       } else if (k === 'wind' || k === 'solar') radiate(x, z, TOOL[k].radius, j => { powered[j] = 1; });
       else if (k === 'water') radiate(x, z, TOOL.water.radius, j => { watered[j] = 1; });
       else if (cover[k]) radiate(x, z, TOOL[k].radius, (j, f) => { cover[k][j] = Math.max(cover[k][j], f); });
+      if (k === 'airport') radiate(x, z, 3, (j, f) => { pollution[j] = Math.min(1, pollution[j] + .1 * f); }); // zgomotul avioanelor
       else if (k === 'I' && level[i]) radiate(x, z, 5, (j, f) => { pollution[j] = Math.min(1, pollution[j] + .12 * level[i] * f); });
     }
     for (let i = 0; i < N * N; i++) {
-      value[i] = clamp(.42 + .22 * cover.park[i] + .14 * cover.garden[i] + .1 * cover.station[i] + .12 * cover.fun[i] + .12 * cover.police[i] + .1 * cover.school[i] + .06 * cover.fire[i]
+      value[i] = clamp(.42 + .22 * cover.park[i] + .14 * cover.garden[i] + .1 * cover.station[i] + .12 * cover.fun[i] + .12 * cover.police[i] + .1 * cover.school[i] + .06 * cover.fire[i] + .1 * cover.cafe[i] + .04 * cover.parking[i] + .08 * cover.airport[i]
         + .08 * this.nearWater[i] - .55 * pollution[i], 0, 1);
     }
   }
@@ -230,7 +231,7 @@ export class City {
     const s = this.stats, jobs = s.jobsC + s.jobsI;
     const income = Math.round((s.pop * 10 + jobs * 6) * this.tax / 100), farm = this.harvest;
     this.harvest = 0;
-    let roadCost = 0, services = 0, energy = 0, ranch = 0, tickets = 0;
+    let roadCost = 0, services = 0, energy = 0, ranch = 0, tickets = 0, business = 0;
     this.kind.forEach((k, i) => {
       const water = this.terrain[i] === WATER;
       if (k === 'road' || k === 'crossing') roadCost += water ? BRIDGE_UPKEEP : ROAD_UPKEEP;
@@ -242,12 +243,13 @@ export class City {
       // energia de la eoliene și panouri, produsele de la fermă
       if (k === 'ranch') ranch += (ANIMALS[this.level[i]] || ANIMALS[0]).income;
       else if (k === 'fun') tickets += TOOL.fun.sells;
+      else if (TOOL[k]?.biz) business += TOOL[k].sells;
       else if (TOOL[k]?.sells) energy += TOOL[k].sells;
     });
     const expenses = roadCost + services;
-    const earned = income + farm + energy + ranch + tickets;
+    const earned = income + farm + energy + ranch + tickets + business;
     this.money += earned - expenses;
-    this.lastMonth = { income, farm, energy, ranch, tickets, roads: roadCost, services, expenses, net: earned - expenses };
+    this.lastMonth = { income, farm, energy, ranch, tickets, business, roads: roadCost, services, expenses, net: earned - expenses };
     this.monthEnded = true;
   }
 

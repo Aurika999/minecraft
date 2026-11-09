@@ -288,6 +288,17 @@ Fără acești pași jocul merge ca înainte, iar 👥 spune doar că funcția n
 
 ---
 
+## 🏘️ Clădiri noi și case mai frumoase
+
+- **Casele mici** au trei stiluri: căsuță cu prispă, vilă cu fântână și chiparoși, casă cu etaj, balcon și garaj. Toate au acoperiș de țiglă cu streașină, alee bej și flori la ferestre.
+- **Casele mari** sunt conace cu aripi, portic cu coloane, balcon și fântână rotundă în curte.
+- **☕ Cafenea** (500 $, +40 $/lună): terasă cu umbrele; scumpește terenul din jur.
+- **⛽ Benzinărie** (900 $, +70 $/lună): copertină, pompe, magazin.
+- **🅿️ Parcare** (120 $ pe pătrățel, +12 $/lună): mașini parcate și semnul P.
+- **✈️ Aeroport** (600 $ pe pătrățel, +45 $/lună): trage o suprafață lungă (de exemplu 2 × 5). Primul rând e pista, al doilea are turnul de control, terminalul, hangarul și un avion parcat. Pe pistă decolează avioane.
+- **Poliția, pompierii și școala** au acum mașini, steag, loc de joacă și autobuz școlar.
+- Banii de la clădirile noi apar în 📊 Buget, la „Afaceri”. Cifrele orașului (bani, oameni, locuri de muncă, mulțumire, data) sunt jos în fereastra Buget.
+
 ## 📋 Misiuni, animale, sunete
 
 - **📋 Misiuni:** câte 3 odată, 23 în total, de la „10 pătrățele de drum” până la „3.000 de locuitori”. Fiecare are o bară de progres. La final primești bani și o ⭐, cu confetti și fanfară, iar misiunile terminate rămân ca insigne.

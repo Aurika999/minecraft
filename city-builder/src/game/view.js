@@ -27,7 +27,10 @@ const COL = {
   sidewalk: 0xe39b7b, garden: 0x6cbf4f, hedge: 0x2e7d32, path: 0xdccfae, soil: 0x7a5233, furrow: 0x5b3a20,
   flowers: [0xe53950, 0xffd23f, 0xff7eb6, 0xffffff, 0x9b5de5, 0xff8c42, 0x4d9de0],
   shirts: [0xe74c3c, 0x3498db, 0xf1c40f, 0x2ecc71, 0xffffff, 0x9b59b6, 0xe67e22, 0x1abc9c, 0x34495e, 0xff7eb6],
+  tiles: [0xc65a3a, 0xb04a32, 0xd47250, 0x9c5544, 0x7a5a8c], villa: [0xfff3dc, 0xffe2b8, 0xf7d9c4, 0xfdf0e6, 0xe8f0d8, 0xffe9a8],
+  eave: 0xf5efe3, asphalt: 0x5d636b, tarmac: 0x4b5058, apron: 0x9aa1a8,
 };
+const shade = (hex, f) => new THREE.Color(hex).multiplyScalar(f).getHex();
 
 // colorează o geometrie (pentru piesele care nu își schimbă culoarea: geamuri, roți, faruri)
 function paint(geo, hex) {
@@ -346,17 +349,17 @@ export class CityView {
     this.pools = {
       ground: new Pool(scene, this.geo.box, N * N, { shadow: false }),
       mark: new Pool(scene, this.geo.box, N * N * 12, { shadow: false }),
-      box: new Pool(scene, this.geo.box, N * N * 14),
-      gable: new Pool(scene, this.geo.gable, N * N * 3),
+      box: new Pool(scene, this.geo.box, N * N * 24),
+      gable: new Pool(scene, this.geo.gable, N * N * 4),
       wedge: new Pool(scene, this.geo.wedge, N * N),
-      house: facade({ floor: .2, cell: .14, winW: .48, winH: .48, base: .04, top: .03 }, N * N * 2),
+      house: facade({ floor: .2, cell: .14, winW: .48, winH: .48, base: .04, top: .03 }, N * N * 3),
       apt: facade({ floor: .2, cell: .14, winW: .55, winH: .55, base: .2, top: .06 }, N * N),
       block: facade({ floor: .2, cell: .13, winW: .56, winH: .52, base: .2, top: .06, line: 1 }, N * N * 2),
       shop: facade({ floor: .2, cell: .16, winW: .5, winH: .5, base: .24, top: .04, shop: .19 }, N * N),
       office: facade({ floor: .14, cell: .1, winW: .9, winH: .68, base: .12, top: .04 }, N * N * 3),
       factory: facade({ floor: .5, cell: .12, winW: .7, winH: .22, base: .05, top: .05 }, N * N),
-      pyr: new Pool(scene, this.geo.pyr, N * N),
-      cyl: new Pool(scene, this.geo.cyl, N * N * 6),
+      pyr: new Pool(scene, this.geo.pyr, N * N * 3),
+      cyl: new Pool(scene, this.geo.cyl, N * N * 8),
       cone: new Pool(scene, this.geo.cone, N * N * 6),
       flower: new Pool(scene, new THREE.IcosahedronGeometry(.5, 0).translate(0, .5, 0), N * N * 10),
       ball: new Pool(scene, this.geo.ball, N * N * 16),
@@ -708,6 +711,8 @@ export class CityView {
   rebuild(city) {
     for (const p of Object.values(this.pools)) p.n = 0;
     this.lamps = [];
+    this.cityRef = city;
+    this.runways = [];
     const roads = [], rails = [];
     this.turbines = [];
     this.ranchSpots = [];
@@ -747,6 +752,9 @@ export class CityView {
       else if (k === 'solar') gc = 0xcfc8b8;
       else if (k === 'ranch') gc = 0x9ad85e;
       else if (k === 'fun') gc = 0xf0dfc4;
+      else if (k === 'parking') gc = COL.asphalt;
+      else if (k === 'airport') gc = COL.apron;
+      else if (k === 'cafe' || k === 'gas' || k === 'police' || k === 'fire' || k === 'school') gc = COL.paving;
       else if (t === FOREST) gc = COL.forest;
       // plajă: iarba liberă de lângă apă devine nisip, uneori cu un palmier
       const shore = !k && t === GRASS && [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dz]) =>
@@ -911,6 +919,7 @@ export class CityView {
     this.railSet = new Set(rails.map(([x, z]) => z * N + x));
     this.stations = stations;
     this.sky.setLamps(this.lamps);
+    this.syncPlanes();
     // păstrează cum erau barierele (sus sau jos), ca să nu sară la reconstruire
     const old = new Map(this.barriers.map(b => [`${b.i}:${b.hx}:${b.hz}`, b.a]));
     for (const b of barriers) b.a = old.get(`${b.i}:${b.hx}:${b.hz}`) ?? b.a;
@@ -1060,6 +1069,44 @@ export class CityView {
     return best;
   }
 
+  // câte un avion pe fiecare pistă (cel mult 3)
+  syncPlanes() {
+    this.planes ||= [];
+    for (const pl of this.planes) { this.scene.remove(pl.grp); }
+    this.planes = this.runways.slice(0, 3).map((rw, k) => {
+      const grp = new THREE.Group(), mat = c => new THREE.MeshLambertMaterial({ color: c });
+      const add = (geo, c, x, y, z) => { const m = new THREE.Mesh(geo, mat(c)); m.position.set(x, y, z); m.castShadow = true; grp.add(m); };
+      add(new THREE.BoxGeometry(.62, .1, .1), 0xf7f7f7, 0, .05, 0);
+      add(new THREE.SphereGeometry(.05, 10, 8), 0xf7f7f7, .31, .05, 0);
+      add(new THREE.BoxGeometry(.06, .03, .08), 0x2b3a4a, .26, .09, 0);
+      add(new THREE.BoxGeometry(.16, .02, .74), 0xe0e0e0, .02, .06, 0);
+      add(new THREE.BoxGeometry(.1, .16, .015), 0xe53935, -.28, .16, 0);
+      add(new THREE.BoxGeometry(.08, .015, .26), 0xe0e0e0, -.28, .1, 0);
+      add(new THREE.BoxGeometry(.5, .012, .102), 0xe53935, 0, .07, 0);
+      this.scene.add(grp);
+      return { grp, rw, t: k * 5 };
+    });
+  }
+
+  // avionul stă la capătul pistei, prinde viteză, se ridică și zboară departe; apoi vine altul
+  updatePlanes(dt) {
+    for (const pl of this.planes || []) {
+      const { rw } = pl, T = 16;
+      pl.t = (pl.t + dt) % T;
+      const t = pl.t, L = rw.len;
+      let s = 0, y = 0, pitch = 0, show = true;
+      if (t < 2) s = 0;
+      else if (t < 7) s = Math.pow((t - 2) / 5, 2) * L * .9;
+      else if (t < 11) s = L * .9 + (t - 7) * L * .36;
+      else show = false;
+      const lift = L * .55;
+      if (s > lift) { y = (s - lift) * .32; pitch = Math.min(.28, (s - lift) * .25); }
+      pl.grp.visible = show;
+      pl.grp.position.set(rw.x + rw.al[0] * (s - .3), y + .02, rw.z + rw.al[1] * (s - .3));
+      pl.grp.rotation.set(0, rw.yaw, pitch);
+    }
+  }
+
   // e o trecere la nivel închisă aproape de mijlocul ecranului? (pentru clopoțel)
   bellNear() {
     if (!this.closed.size) return false;
@@ -1113,7 +1160,24 @@ export class CityView {
   // r = rotația clădirii; fața (ușa) e spre +z înainte de rotire
   building(k, lvl, v, cx, cz, i, r) {
     const cs = Math.cos(r), sn = Math.sin(r);
-    const P = (pool, dx, y, dz, sx, sy, sz, col) => this.part(pool, cx + dx * cs + dz * sn, y, cz - dx * sn + dz * cs, sx, sy, sz, col, r);
+    const P = (pool, dx, y, dz, sx, sy, sz, col, rot = 0) => this.part(pool, cx + dx * cs + dz * sn, y, cz - dx * sn + dz * cs, sx, sy, sz, col, r + rot);
+    // acoperiș în două ape cu streașină albă și coamă mai închisă (coama în lungul lui z, sau al lui x cu along)
+    const roofG = (dx, y, dz, w, d, h, col, along = false) => {
+      const [a, b] = along ? [d, w] : [w, d], rot = along ? Math.PI / 2 : 0;
+      P('box', dx, y - .014, dz, w + .1, .016, d + .1, COL.eave);
+      P('gable', dx, y, dz, a + .1, h, b + .1, col, rot);
+      P('box', dx, y + h - .014, dz, along ? .03 : .035, .028, along ? d + .14 : d + .12, shade(col, .72), rot);
+    };
+    // acoperiș în patru ape (piramidă turtită) cu streașină
+    const roofH = (dx, y, dz, w, d, h, col) => {
+      P('box', dx, y - .014, dz, w + .12, .016, d + .12, COL.eave);
+      P('pyr', dx, y, dz, w + .1, h, d + .1, col);
+    };
+    // jardiniere cu flori sub ferestrele din față
+    const boxes = (y, z, xs) => xs.forEach((x, j) => {
+      P('box', x, y, z, .09, .025, .025, 0x8d5a3b);
+      P('ball', x, y + .015, z, .08, .035, .03, pick(COL.flowers, v + j));
+    });
     const roof = pick(COL.roofs, v >> 2);
     const yard = () => { // gard alb în jurul curții, cu poartă spre drum
       for (const sx of [-1, 1]) P('box', sx * .46, 0, 0, .025, .07, .94, COL.fence);
@@ -1123,40 +1187,80 @@ export class CityView {
     if (k === 'R') {
       if (!lvl) return 0;
       if (lvl === 1) {
-        const wall = pick(COL.walls, v), style = (v >> 3) % 3;
+        const wall = pick(COL.walls, v), style = (v >> 3) % 3, tile = pick(COL.tiles, v >> 1);
         yard();
-        P('box', 0, 0, .3, .1, .008, .34, COL.path);
-        P('house', 0, 0, -.1, .5, .28, .4, wall);
-        P(style === 1 ? 'pyr' : 'gable', 0, .28, -.1, .62, .2, .52, roof);
-        P('box', .14, .3, -.2, .06, .16, .06, 0x9c6b52);
-        P('box', 0, 0, .105, .09, .17, .012, 0x7a4b2e);
-        P('box', 0, 0, .13, .16, .02, .05, 0xd8d0c0);
-        if (style === 0) { // piscină
-          P('box', .26, 0, .28, .3, .01, .28, 0xf4f4f4);
-          P('box', .26, .002, .28, .24, .012, .22, 0x48b4e8);
+        P('box', 0, 0, .3, .12, .01, .36, COL.path); // alee bej spre poartă
+        if (style === 0) {
+          // căsuță cu prispă: țiglă, streașină, coș, stâlpi albi
+          P('house', 0, 0, -.13, .5, .28, .36, wall);
+          roofG(0, .28, -.13, .5, .36, .2, tile);
+          P('box', .15, .3, -.24, .06, .2, .06, 0xb5533c);
+          P('box', .15, .5, -.24, .08, .02, .08, 0x7a3626);
+          P('box', 0, 0, .1, .54, .03, .14, 0xd9c7a8);
+          for (const px of [-.24, 0, .24]) P('cyl', px, .03, .15, .022, .2, .022, 0xffffff);
+          P('box', 0, .23, .1, .6, .025, .18, tile);
+          P('box', 0, .03, .055, .09, .16, .012, 0x7a4b2e);
+          boxes(.1, .06, [-.15, .15]);
+          if (v % 2) { P('box', .28, 0, .3, .3, .012, .28, 0xf4f4f4); P('box', .28, .004, .3, .24, .014, .22, 0x48b4e8); }
+          else this.tree(cx + (.3 * cs + -.34 * sn), cz + (-.3 * sn + -.34 * cs), .5, v);
+        } else if (style === 1) {
+          // vilă mediteraneană: ziduri deschise, acoperiș în patru ape, fântână și chiparoși
+          const vw = pick(COL.villa, v);
+          P('house', 0, 0, -.12, .56, .3, .4, vw);
+          roofH(0, .3, -.12, .56, .4, .16, tile);
+          P('box', 0, 0, .085, .12, .2, .014, 0x8d5a3b);
+          P('ball', 0, .15, .085, .12, .1, .015, 0x8d5a3b); // ușa în arc
+          P('box', 0, 0, .12, .24, .02, .07, 0xe8dcc6);
+          boxes(.12, .09, [-.19, .19]);
+          // fântână arteziană în curte
+          P('cyl', .26, 0, .27, .22, .05, .22, COL.stone);
+          P('cyl', .26, .004, .27, .18, .05, .18, 0x4fc3f7);
+          P('cyl', .26, 0, .27, .03, .13, .03, COL.stone);
+          P('ball', .26, .12, .27, .07, .05, .07, 0x9be3ff);
+          for (const z of [.2, .36]) { P('cyl', -.36, 0, z, .03, .05, .03, 0x6b4a2e); P('cone', -.36, .04, z, .09, .36, .09, 0x2e6b35); }
         } else {
-          P('flower', .28, 0, .28, .14, .12, .14, 0x3f9d3f);
-          this.tree(cx + (.3 * cs + -.32 * sn), cz + (-.3 * sn + -.32 * cs), .5, v);
+          // casă cu etaj, balcon și garaj, cu mașina pe alee
+          P('house', -.08, 0, -.13, .44, .46, .36, wall);
+          roofG(-.08, .46, -.13, .44, .36, .18, tile);
+          P('house', .3, 0, -.08, .22, .22, .32, wall);
+          P('box', .3, .22, -.08, .27, .03, .37, tile);
+          P('box', .3, 0, .085, .17, .16, .01, 0xeeeeee);
+          for (let j = 0; j < 3; j++) P('box', .3, .04 + j * .04, .09, .17, .006, .006, 0xbdbdbd);
+          P('box', -.08, .24, .08, .3, .02, .11, 0xf2f2f2);
+          P('box', -.08, .26, .132, .3, .06, .008, 0xffffff);
+          P('box', -.08, 0, .055, .09, .17, .012, 0x6b4430);
+          P('box', .3, 0, .3, .2, .01, .4, 0xbdb6aa);
+          this.parkedCar(P, .3, .3, 0, pick(COL.car, v));
         }
-        P('flower', -.28, 0, .26, .13, .11, .13, 0x4caf50);
-        P('flower', -.2, 0, .36, .07, .06, .07, pick(COL.flowers, v));
-        return .6;
+        P('flower', -.3, 0, .3, .13, .11, .13, 0x4caf50);
+        P('flower', -.22, 0, .4, .07, .06, .07, pick(COL.flowers, v));
+        return .65;
       }
       if (lvl === 2) {
-        const wall = pick(COL.walls, v + 2);
+        // conac: corp cu etaj, două aripi, portic cu coloane și balcon, fântână rotundă în curte
+        const wall = pick(COL.villa, v + 2), tile = pick(COL.tiles, v + 1);
         yard();
-        P('box', -.06, 0, .32, .1, .008, .3, COL.path);
-        P('house', -.06, 0, -.1, .56, .46, .42, wall);
-        P(v % 2 ? 'gable' : 'pyr', -.06, .46, -.1, .68, .22, .52, roof);
-        P('house', .3, 0, .0, .24, .24, .3, wall);
-        P('box', .3, .24, .0, .28, .03, .34, roof);
-        P('box', -.06, .21, .16, .34, .02, .12, 0xf2f2f2);
-        P('box', -.06, .23, .215, .34, .05, .01, 0xffffff);
-        for (const px of [-.2, .08]) P('cyl', px, 0, .2, .025, .21, .025, 0xffffff);
-        P('box', -.06, 0, .115, .1, .17, .012, 0x6b4430);
-        P('box', -.22, .48, -.2, .06, .14, .06, 0x9c6b52);
-        P('flower', .3, 0, .3, .13, .1, .13, 0x3f9d3f);
-        P('flower', -.33, 0, .3, .12, .1, .12, 0x4caf50);
+        P('box', 0, 0, .3, .64, .012, .3, COL.path);
+        P('cyl', 0, .006, .31, .2, .05, .2, COL.stone);
+        P('cyl', 0, .01, .31, .16, .05, .16, 0x4fc3f7);
+        P('cyl', 0, .01, .31, .025, .12, .025, COL.stone);
+        P('ball', 0, .11, .31, .06, .05, .06, 0x9be3ff);
+        P('house', 0, 0, -.15, .54, .5, .34, wall);
+        roofH(0, .5, -.15, .54, .34, .2, tile);
+        for (const q of [-1, 1]) {
+          P('house', q * .34, 0, -.13, .16, .3, .3, wall);
+          roofH(q * .34, .3, -.13, .16, .3, .1, tile);
+          P('box', q * .17, .52, -.24, .06, .2, .06, shade(tile, .8));
+          P('box', q * .42, 0, .25, .05, .08, .3, COL.hedge);
+          P('cyl', q * .12, 0, .44, .012, .16, .012, 0x333333);
+          P('ball', q * .12, .15, .44, .035, .035, .035, 0xfff1b0);
+        }
+        for (const px of [-.15, -.05, .05, .15]) P('cyl', px, 0, .07, .024, .27, .024, 0xffffff);
+        P('box', 0, .27, .07, .38, .025, .14, 0xf2f2f2);
+        P('box', 0, .295, .135, .38, .055, .008, 0xffffff);
+        P('box', 0, 0, .025, .1, .2, .012, 0x6b4430);
+        P('box', 0, 0, .06, .4, .02, .14, 0xe8dcc6);
+        boxes(.34, .03, [-.18, .18]);
         return 1;
       }
       const floors = 5 + (v % 4), hh = .2 + floors * .2 + .06;
@@ -1208,6 +1312,9 @@ export class CityView {
       }
       // copaci și bănci în fața blocului
       if (v % 2) this.tree(cx + (.38 * cs + .38 * sn), cz + (-.38 * sn + .38 * cs), .45, v);
+      else { P('box', .3, 0, .41, .2, .05, .06, 0x8d6e4c); P('box', .3, .05, .385, .2, .04, .012, 0x8d6e4c); }
+      P('box', -.34, 0, .41, .2, .05, .08, 0x8d5a3b);
+      for (let j = 0; j < 3; j++) P('ball', -.41 + j * .07, .04, .41, .06, .05, .05, pick(COL.flowers, v + j));
       return hh + .3;
     }
     if (k === 'C') {
@@ -1501,26 +1608,218 @@ export class CityView {
       return .7;
     }
     if (k === 'police') {
-      this.part('box', cx, 0, cz, .8, .55, .8, 0x3d62c4, r);
-      this.part('box', cx, .55, cz, .82, .06, .82, 0xe8e8e8, r);
-      this.part('box', cx - .1, .61, cz, .12, .1, .12, 0xe53935);
-      this.part('box', cx + .1, .61, cz, .12, .1, .12, 0x1e88e5);
-      return .8;
+      // secție albă cu bandă albastră, copertină, steag, antenă și mașina de poliție în curte
+      this.part('box', cx, 0, cz, .98, .014, .98, COL.paving, r);
+      P('office', 0, 0, -.14, .72, .5, .44, 0xf4f5f7);
+      P('box', 0, .3, -.14, .74, .06, .46, 0x2f5bd6);
+      P('box', 0, .5, -.14, .76, .04, .48, 0xd5dbe0);
+      P('box', 0, .2, .13, .28, .025, .12, 0x2f5bd6);
+      for (const q of [-1, 1]) P('cyl', q * .12, 0, .18, .012, .2, .012, 0xdddddd);
+      P('box', 0, 0, .085, .12, .18, .01, 0x2a3b55);
+      P('ball', .1, .2, .09, .035, .035, .035, 0x64b5f6);
+      P('cyl', .25, .54, -.25, .01, .28, .01, COL.metal);
+      P('box', -.22, .54, -.22, .14, .08, .12, COL.metal);
+      this.flag(P, -.42, .36);
+      this.parkedCar(P, .26, .32, 0, 0xffffff, 'police');
+      this.parkedCar(P, -.05, .34, Math.PI / 2, 0xffffff, 'police');
+      return .9;
     }
     if (k === 'fire') {
-      this.part('box', cx, 0, cz, .82, .6, .82, 0xc8382f, r);
-      this.part('box', cx, 0, cz, .5, .38, .86, 0x3a2a26, r);
-      this.part('box', cx, .6, cz, .84, .06, .84, 0xeeeeee, r);
-      return .8;
-    }
-    if (k === 'school') {
-      this.part('box', cx, 0, cz, .86, .5, .62, 0xe08a3c, r);
-      this.part('pyr', cx, .5, cz, .9, .25, .66, 0x8c4a3a, r);
-      this.part('cyl', cx + .35, 0, cz + .35, .03, 1, .03, COL.metal);
-      this.part('box', cx + .43, .82, cz + .35, .16, .12, .02, 0xd62f2f);
+      // stație roșie cu două uși de garaj, turn pentru furtunuri, mașina de pompieri și hidrant
+      this.part('box', cx, 0, cz, .98, .014, .98, COL.paving, r);
+      P('office', 0, 0, -.16, .78, .55, .44, 0xc8382f);
+      P('box', 0, .55, -.16, .8, .04, .46, 0xf2f2f2);
+      for (const q of [-1, 1]) {
+        P('box', q * .18, 0, .065, .27, .31, .012, 0xf2f2f2);
+        P('box', q * .18, .02, .072, .22, .27, .008, 0x3d3d3d);
+        for (let j = 1; j < 5; j++) P('box', q * .18, .02 + j * .054, .077, .22, .006, .004, 0x777777);
+      }
+      P('house', .33, 0, -.3, .16, .95, .16, 0xb5332a);
+      P('pyr', .33, .95, -.3, .2, .12, .2, 0x4a4a4a);
+      P('ball', -.3, .58, -.05, .05, .05, .05, 0xff5252);
+      // mașina de pompieri, cu scara pe ea
+      P('box', -.18, .01, .29, .15, .1, .3, 0xd32f2f);
+      P('box', -.18, .01, .45, .14, .13, .07, 0xd32f2f);
+      P('box', -.18, .09, .46, .13, .04, .052, 0x2b3a4a);
+      P('box', -.18, .11, .27, .06, .02, .26, 0xcfd4d9);
+      P('box', -.18, 0, .32, .13, .03, .34, 0x222222);
+      P('cyl', .38, 0, .42, .025, .09, .025, 0xe53935);
+      P('ball', .38, .08, .42, .03, .025, .03, 0xe53935);
       return 1;
     }
+    if (k === 'school') {
+      // școală galbenă cu turn cu ceas, steag, loc de joacă (tobogan, leagăn) și autobuzul școlar
+      this.part('box', cx, 0, cz, .98, .014, .98, COL.paving, r);
+      P('house', -.08, 0, -.22, .76, .42, .36, 0xf5c04a);
+      roofG(-.08, .42, -.22, .76, .36, .14, 0xb5533c, true);
+      P('house', -.08, .42, -.22, .14, .24, .14, 0xf5c04a);
+      P('pyr', -.08, .66, -.22, .18, .12, .18, 0xb5533c);
+      P('ball', -.08, .5, -.147, .08, .08, .012, 0xffffff);
+      P('box', -.08, .53, -.14, .006, .03, .004, 0x222222);
+      P('box', -.08, 0, -.035, .14, .2, .012, 0x6b4430);
+      P('box', -.08, 0, 0, .26, .025, .08, 0xe8dcc6);
+      P('box', .26, 0, .24, .34, .008, .4, 0x7cc76a);
+      P('wedge', .2, 0, .3, .22, .16, .06, 0xff5252);
+      P('box', .33, 0, .3, .05, .16, .07, 0x2f80ed);
+      for (const q of [-1, 1]) P('cyl', .26 + q * .11, 0, .14, .012, .2, .012, COL.metal);
+      P('box', .26, .2, .14, .25, .012, .012, COL.metal);
+      for (const q of [-1, 1]) { P('box', .26 + q * .05, .12, .14, .002, .08, .002, 0x333333); P('box', .26 + q * .05, .07, .14, .05, .01, .03, 0xe53935); }
+      this.flag(P, -.44, .1);
+      P('box', -.28, .015, .32, .15, .11, .36, 0xf6c21c);
+      P('box', -.28, .08, .32, .155, .035, .32, 0x2b3a4a);
+      P('box', -.28, 0, .32, .13, .03, .3, 0x222222);
+      return 1;
+    }
+    if (k === 'cafe') {
+      // cafenea cu copertină în dungi și terasă: mese cu umbrele, scaune, ghivece cu flori
+      const aw = pick(COL.awning, v);
+      this.part('box', cx, 0, cz, .98, .014, .98, COL.paving, r);
+      P('shop', 0, 0, -.24, .62, .34, .36, 0xfff1dc);
+      P('box', 0, .34, -.24, .66, .03, .4, 0x6d4c41);
+      P('box', 0, .37, -.08, .3, .09, .02, aw);
+      P('box', 0, .385, -.068, .2, .05, .006, 0xffffff);
+      for (let j = 0; j < 6; j++) {
+        P('box', -.25 + j * .1, .26, -.01, .1, .02, .12, j % 2 ? 0xffffff : aw);
+        P('box', -.25 + j * .1, .23, .05, .1, .04, .008, j % 2 ? 0xffffff : aw);
+      }
+      for (const [tx, tz] of [[-.26, .26], [0, .32], [.26, .26]]) {
+        P('cyl', tx, 0, tz, .1, .08, .1, 0xffffff);
+        P('cyl', tx, 0, tz, .008, .3, .008, 0x8d6e4c);
+        P('cone', tx, .25, tz, .3, .08, .3, (tx === 0) ? aw : 0xffffff);
+        for (const q of [-1, 1]) P('box', tx + q * .08, 0, tz, .04, .05, .04, 0x8d5a3b);
+      }
+      for (const q of [-1, 1]) {
+        P('cyl', q * .43, 0, .43, .06, .06, .06, 0xb5653a);
+        P('ball', q * .43, .05, .43, .07, .07, .07, 0x3f9d3f);
+        P('box', q * .47, 0, .1, .03, .07, .6, COL.hedge);
+      }
+      return .65;
+    }
+    if (k === 'gas') {
+      // benzinărie: copertină pe stâlpi, pompe, magazin și stâlpul cu prețuri
+      const band = pick([0x2e9d55, 0xe53935, 0x1e88e5, 0xffa000], v);
+      this.part('box', cx, 0, cz, .98, .014, .98, 0xd6d3cc, r);
+      for (const [px, pz] of [[-.3, .06], [.3, .06], [-.3, .34], [.3, .34]]) P('cyl', px, 0, pz, .03, .32, .03, 0xf2f2f2);
+      P('box', 0, .32, .2, .78, .05, .44, 0xffffff);
+      P('box', 0, .325, .2, .79, .03, .45, band);
+      for (const q of [-1, 1]) {
+        P('box', q * .17, 0, .2, .08, .025, .26, 0xcfcfcf);
+        P('box', q * .17, .025, .2, .06, .14, .07, 0xf2f2f2);
+        P('box', q * .17, .14, .2, .065, .03, .075, band);
+      }
+      P('shop', 0, 0, -.3, .62, .26, .3, 0xf4f4f4);
+      P('box', 0, .26, -.3, .64, .045, .32, band);
+      P('box', .42, 0, .42, .04, .46, .04, 0xdddddd);
+      P('box', .42, .3, .42, .12, .16, .03, band);
+      P('box', .42, .32, .437, .09, .1, .006, 0xffffff);
+      this.parkedCar(P, 0, .2, 0, pick(COL.car, v + 3));
+      return .7;
+    }
+    if (k === 'parking') {
+      // parcare: asfalt, linii albe, mașini parcate și semnul P
+      this.part('box', cx, 0, cz, 1, .014, 1, COL.asphalt, r);
+      for (const z of [-.25, .25]) for (let j = 0; j < 5; j++) P('box', -.4 + j * .2, .014, z, .015, .003, .4, 0xffffff);
+      for (let j = 0; j < 4; j++) P('box', -.33 + j * .22, .014, 0, .1, .003, .015, 0xffffff);
+      for (const z of [-.25, .25]) for (let j = 0; j < 4; j++)
+        if (hash(i, j + (z > 0 ? 4 : 0)) < .7) this.parkedCar(P, -.3 + j * .2, z, 0, pick(COL.car, (v + j * 7 + (z > 0 ? 3 : 0)) | 0));
+      if (v % 3 === 0) {
+        P('cyl', .46, 0, -.46, .012, .3, .012, COL.metal);
+        P('box', .46, .28, -.46, .1, .1, .015, 0x1e5fd6);
+        P('box', .46, .3, -.45, .04, .06, .006, 0xffffff);
+      }
+      return .3;
+    }
+    if (k === 'airport') return this.airportTile(i, cx, cz, v);
     return 0;
+  }
+
+  // mașină parcată (fără roți care se mișcă); kind = 'police' adaugă girofarul și dunga
+  parkedCar(P, dx, dz, rot, col, kind) {
+    const c = Math.cos(rot), s = Math.sin(rot), at = (ax, az) => [dx + ax * c + az * s, dz - ax * s + az * c];
+    P('box', dx, 0, dz, .13, .03, .23, 0x222222, rot);
+    P('box', dx, .02, dz, .14, .05, .26, col, rot);
+    const [gx, gz] = at(0, -.015);
+    P('box', gx, .07, gz, .12, .045, .13, 0x2b3a4a, rot);
+    P('box', gx, .112, gz, .118, .012, .1, col, rot);
+    if (kind === 'police') {
+      P('box', gx, .124, gz, .1, .02, .03, 0x1e88e5, rot);
+      P('box', dx, .045, dz, .145, .016, .2, 0x1e3a8a, rot);
+    }
+  }
+
+  // steag pe catarg (trei dungi)
+  flag(P, dx, dz) {
+    P('cyl', dx, 0, dz, .012, .62, .012, COL.metal);
+    [0x1565c0, 0xffd600, 0xd32f2f].forEach((c, j) => P('box', dx + .03 + j * .03, .5, dz, .03, .07, .005, c));
+  }
+
+  // aeroportul: primul rând e pista, al doilea are clădirile (turn de control, terminal, hangar, avion parcat),
+  // restul e platformă cu linii galbene
+  airportTile(i, cx, cz, v) {
+    const c = this.cityRef, x = i % N, z = (i / N) | 0;
+    const is = (a, b) => c.inside(a, b) && c.kind[c.idx(a, b)] === 'airport';
+    const run = (dx, dz) => { let n = 0; while (n < N && is(x + dx * (n + 1), z + dz * (n + 1))) n++; return n; };
+    const axis = run(1, 0) + run(-1, 0) >= run(0, 1) + run(0, -1) ? 0 : 1;
+    const al = axis ? [0, 1] : [1, 0], pp = axis ? [1, 0] : [0, 1];
+    const row = run(-pp[0], -pp[1]), before = run(-al[0], -al[1]), after = run(al[0], al[1]);
+    const L = (len, wid) => (axis ? [wid, len] : [len, wid]);
+    const yaw = axis ? -Math.PI / 2 : 0, cs = Math.cos(yaw), sn = Math.sin(yaw);
+    const Q = (pool, dx, y, dz, sx, sy, sz, col, rot = 0) => this.part(pool, cx + dx * cs + dz * sn, y, cz - dx * sn + dz * cs, sx, sy, sz, col, yaw + rot);
+    if (row === 0) {
+      this.part('box', cx, 0, cz, 1, .014, 1, COL.tarmac);
+      const [dx, dz] = L(.3, .03);
+      this.part('box', cx, .014, cz, dx, .003, dz, 0xffffff);
+      for (const q of [-1, 1]) { const [ex, ez] = L(1, .025); this.part('box', cx + pp[0] * q * .42, .014, cz + pp[1] * q * .42, ex, .003, ez, 0xffffff); }
+      for (const end of [before === 0 ? -1 : 0, after === 0 ? 1 : 0]) if (end) for (let k = -2; k <= 2; k++) {
+        const [tx, tz] = L(.24, .045);
+        this.part('box', cx + al[0] * end * .3 + pp[0] * k * .11, .014, cz + al[1] * end * .3 + pp[1] * k * .11, tx, .003, tz, 0xffffff);
+      }
+      for (const q of [-1, 1]) this.part('ball', cx + pp[0] * q * .47, .01, cz + pp[1] * q * .47, .035, .03, .035, 0xffe082);
+      if (before === 0 && after >= 2) this.runways.push({ x: cx, z: cz, al, len: after + 1, yaw });
+      return .1;
+    }
+    this.part('box', cx, 0, cz, 1, .014, 1, COL.apron);
+    if (row === 1) {
+      const role = before % 4;
+      if (role === 0) { // turn de control
+        Q('cyl', 0, 0, 0, .16, .72, .16, 0xe6e6e6);
+        Q('cyl', 0, .72, 0, .3, .03, .3, 0xd0d0d0);
+        Q('cyl', 0, .75, 0, .26, .13, .26, 0x5aa9e6);
+        Q('cyl', 0, .88, 0, .32, .04, .32, 0x4a4f57);
+        Q('cyl', .06, .92, 0, .01, .22, .01, COL.metal);
+        Q('ball', .06, 1.12, 0, .03, .03, .03, 0xff5252);
+        Q('box', -.3, 0, .28, .3, .14, .3, 0xeef1f3);
+      } else if (role === 1) { // terminal cu acoperiș arcuit din sticlă
+        Q('office', 0, 0, .05, .9, .32, .6, 0xe8eef3);
+        Q('arch', 0, .32, .05, .92, .3, .62, 0x6fa8d8);
+        Q('box', 0, 0, -.27, .5, .2, .06, 0x6fa8d8);
+        Q('box', 0, .2, -.32, .5, .02, .14, 0xd5dbe0);
+      } else if (role === 2) { // hangar
+        Q('arch', 0, 0, .05, .92, .78, .84, 0xb0bec5);
+        Q('box', 0, 0, -.37, .5, .3, .01, 0x37474f);
+        Q('box', 0, 0, .46, .92, .05, .01, 0x90a4ae);
+      } else this.planeParts(Q, 0, .02, 0); // avion parcat
+      return .9;
+    }
+    const [lx, lz] = L(1, .03);
+    this.part('box', cx, .014, cz, lx, .003, lz, 0xffd54f);
+    if (v % 3 === 0) { Q('box', .2, 0, .25, .12, .06, .08, 0xf4f4f4); Q('box', .05, 0, .25, .1, .04, .08, 0x9e9e9e); }
+    return .1;
+  }
+
+  // avionul (în lungul lui x, botul spre +x), din piese simple
+  planeParts(Q, dx, y, dz) {
+    Q('box', dx, y + .05, dz, .62, .1, .1, 0xf7f7f7);
+    Q('ball', dx + .31, y + .05, dz, .1, .1, .1, 0xf7f7f7);
+    Q('box', dx + .26, y + .09, dz, .06, .03, .08, 0x2b3a4a);
+    Q('box', dx + .02, y + .07, dz, .16, .02, .74, 0xe0e0e0);
+    Q('box', dx - .28, y + .1, dz, .1, .16, .015, 0x1e88e5);
+    Q('box', dx - .28, y + .12, dz, .08, .015, .26, 0xe0e0e0);
+    Q('box', dx, y + .1, dz, .5, .012, .102, 0x1e88e5);
+    for (const q of [-1, 1]) Q('cyl', dx + .04, y + .03, dz + q * .18, .045, .06, .045, 0x9e9e9e);
+  }
+
+  setPreview(items) {    return 0;
   }
 
   setPreview(items) {
@@ -1947,6 +2246,7 @@ export class CityView {
       p.add(this.m, this.white);
     }
     p.commit();
+    this.updatePlanes(dt);
     this.sky.update(dt, this.skyState);
     this.renderer.render(this.scene, this.camera);
   }

@@ -82,7 +82,7 @@ export function VisitBanner({ ui, g, room }) {
   useEffect(() => setLiked(false), [v?.uid]);
   return (
     <div className="visit-banner">
-      <span>🏝️ În vizită la <b>{v.name}</b>
+      <span>🏝️ În vizită la <b>{v.name}</b> <small className="mine-money">· 💰 {Math.round(ui.homeMoney).toLocaleString('ro-RO')} $ ai tu</small>
         {ui.canBuild ? <small className="build-ok">🔨 poți construi (plătește {v.name})</small>
           : room?.allowed && !room.hostHere ? <small className="build-ok off">🔨 construiești când {v.name} e acasă</small> : null}
       </span>

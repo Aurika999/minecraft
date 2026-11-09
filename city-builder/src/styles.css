@@ -276,3 +276,8 @@ p.center { text-align: center; }
   .speeds button { padding-left: 5px; padding-right: 5px; min-width: 32px; }
 }
 .mapbtns .sky-btn { grid-column: span 2; width: auto; border-radius: 19px; }
+/* cifrele orașului, jos în fereastra Buget */
+.topbar .controls { margin-left: auto; }
+.city-stats { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
+.city-stats .chip { box-shadow: none; background: rgba(0, 0, 0, .05); }
+.city-stats .chip.neg { color: var(--neg); }
