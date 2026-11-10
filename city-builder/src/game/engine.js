@@ -7,6 +7,8 @@ import * as M from './missions.js';
 import { sfx, unlock, setRain } from './sound.js';
 
 const SKY_KEY = 'orasul-meu-cer';
+const WEATHER = false; // ploaia și ninsoarea sunt oprite (true le pornește din nou)
+const QUIZ_DAILY = 40; // câte răspunsuri corecte pe zi aduc bani
 const DAY_REAL = 240; // o zi întreagă (zi + noapte) durează 4 minute
 
 const LOOK_KEY = 'orasul-meu-personaj';
@@ -428,6 +430,29 @@ export class Engine {
   }
 
   // ferestrele de premiu vin pe rând, ca să nu se acopere una pe alta
+  // întrebările cu premii: 50 $ pentru un răspuns corect, plus 100 $ la fiecare 5 la rând;
+  // banii vin pentru cel mult 40 de răspunsuri corecte pe zi (după aceea se poate juca, dar fără bani)
+  quizState() {
+    const q = this.homeCity().quest, today = new Date().toDateString();
+    if (!q.quiz || q.quiz.day !== today) q.quiz = { day: today, correct: 0, answered: 0, earned: 0, streak: 0 };
+    return q.quiz;
+  }
+
+  quizAnswer(ok) {
+    const s = this.quizState(), home = this.homeCity();
+    s.answered++;
+    let reward = 0;
+    if (ok) {
+      s.correct++; s.streak++;
+      home.quest.quizTotal = (home.quest.quizTotal || 0) + 1;
+      if (s.correct <= QUIZ_DAILY) reward = 50 + (s.streak % 5 === 0 ? 100 : 0);
+      sfx.coin();
+    } else { s.streak = 0; sfx.wrong(); }
+    if (reward) { s.earned += reward; home.quest.quizEarned = (home.quest.quizEarned || 0) + reward; this.addMoney(reward); } else { this.save(); this.emit(); }
+    this.quests();
+    return { reward, ...s };
+  }
+
   party(p) {
     const item = { ...p, id: ++this.celebrateId };
     if (this.celebrate) (this.partyQueue ||= []).push(item); else this.celebrate = item;
@@ -634,7 +659,7 @@ export class Engine {
     else this.dayT = (this.dayT + dt * Math.max(1, Math.min(this.speed || 1, 3)) / DAY_REAL) % 1;
     // vremea: din când în când plouă (iarna ninge); după ploaie, ziua, apare un curcubeu
     const w = this.weather;
-    if (!w.kind && t > w.next) {
+    if (WEATHER && !w.kind && t > w.next) {
       const month = Math.floor(this.city.day / 30) % 12;
       w.kind = [11, 0, 1].includes(month) ? 'snow' : 'rain';
       w.until = t + 30000 + Math.random() * 35000;
@@ -679,7 +704,8 @@ export class Engine {
       previewCost: this.previewCost || 0, welcome: this.welcome, messages: [...this.messages],
       readOnly: !!this.readOnly, visiting: this.visiting || null, homeMoney: this.homeCity().money,
       canBuild: !!this.canBuild, walking: !!this.walk, celebrate: this.celebrate, stars: this.homeCity().quest.stars,
-      missions: this.missions(), sky: this.skyInfo(), look: this.me.look, shirt: this.me.shirt,
+      missions: this.missions(), sky: this.skyInfo(),
+      quiz: { today: this.quizState().earned, correct: this.quizState().correct, total: this.homeCity().quest.quizEarned || 0, answers: this.homeCity().quest.quizTotal || 0 }, look: this.me.look, shirt: this.me.shirt,
       info: this.selected ? c.tileInfo(this.selected.x, this.selected.z) : null,
       buildings: c.kind.reduce((n, k, i) => n + (k && !['road', 'rail', 'crossing', 'bridge'].includes(k) && (!ZONES.has(k) || c.level[i]) ? 1 : 0), 0),
     });

@@ -295,7 +295,7 @@ Fără acești pași jocul merge ca înainte, iar 👥 spune doar că funcția n
 - **☕ Cafenea** (500 $, +40 $/lună): terasă cu umbrele; scumpește terenul din jur.
 - **⛽ Benzinărie** (900 $, +70 $/lună): copertină, pompe, magazin.
 - **🅿️ Parcare** (120 $ pe pătrățel, +12 $/lună): mașini parcate și semnul P.
-- **✈️ Aeroport** (600 $ pe pătrățel, +45 $/lună): trage o suprafață lungă (de exemplu 2 × 5). Primul rând e pista, al doilea are turnul de control, terminalul, hangarul și un avion parcat. Pe pistă decolează avioane.
+- **✈️ Aeroport** (600 $ pe pătrățel, +45 $/lună): trage o suprafață lungă (de exemplu 2 × 5). Primul rând e pista, al doilea are turnul de control, terminalul, hangarul și un avion parcat. Pe pistă avioanele decolează și aterizează, și cât timp jocul merge.
 - **Poliția, pompierii și școala** au acum mașini, steag, loc de joacă și autobuz școlar.
 - Banii de la clădirile noi apar în 📊 Buget, la „Afaceri”. Cifrele orașului (bani, oameni, locuri de muncă, mulțumire, data) sunt jos în fereastra Buget.
 
@@ -306,11 +306,18 @@ Fără acești pași jocul merge ca înainte, iar 👥 spune doar că funcția n
 - **🐾 Animale de mângâiat:** atingi un animal de la fermă și el sare, scoate o ❤️ și se aude glasul lui. Când te plimbi cu personajul, animalele pe lângă care treci se mângâie singure.
 - **🔊 Sunete și muzică:** construcții, monede, păsărele ziua, greieri noaptea, claxoane, clopoțelul barierei, ploaia și o melodie veselă. Toate sunt făcute de joc, fără fișiere audio. 🔊 din bara de sus le oprește pe toate; din ☰ Meniu oprești separat sunetele și muzica.
 
+## ❓ Întrebări cu premii
+
+- Butonul galben **❓** din stânga deschide întrebări de cultură generală cu 4 variante de răspuns: capitale, steaguri (desenate de joc), animale, natură, România, lumea, corpul omenesc și matematică.
+- Un răspuns corect aduce **50 $**, iar la fiecare 5 corecte la rând vine un bonus de **100 $**. Banii se dau pentru cel mult 40 de răspunsuri corecte pe zi; după aceea se poate juca mai departe, fără bani.
+- În **📊 Buget** vezi câți bani ai făcut din întrebări azi și în total.
+- Misiuni: 10 și 100 de răspunsuri corecte.
+
 ## 🌗 Zi și noapte, vreme
 
 - O zi întreagă durează cam 4 minute. Soarele și umbrele se mișcă, seara lumina devine portocalie, iar noaptea se aprind ferestrele, felinarele și farurile mașinilor.
 - Butonul **☀️ / 🌗** lângă butoanele de rotire: „Mereu zi” sau zi și noapte pe rând.
-- Din când în când plouă, iar iarna ninge. După o ploaie de zi apare un 🌈 curcubeu. Vremea de acum se vede lângă dată.
+- Ploaia, ninsoarea și curcubeul sunt oprite (se pornesc din nou cu `WEATHER = true` în `engine.js`). Lângă dată se vede dacă e zi ☀️, apus 🌅 sau noapte 🌙.
 
 ## Structura codului
 

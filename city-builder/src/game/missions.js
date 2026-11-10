@@ -14,6 +14,7 @@ export const MISSIONS = [
   { id: 'water1', icon: '💧', text: 'Construiește un turn de apă', reward: 500, goal: c => [count(c, 'water'), 1] },
   { id: 'pop50', icon: '👥', text: 'Ajungi la 50 de locuitori', reward: 500, goal: c => [c.stats.pop, 50] },
   { id: 'pet5', icon: '🐾', text: 'Mângâie 5 animale (atinge-le cu 🔍)', reward: 300, goal: (c, q) => [q.pets || 0, 5] },
+  { id: 'quiz10', icon: '❓', text: 'Răspunde corect la 10 întrebări (butonul ❓)', reward: 500, goal: (c, q) => [q.quizTotal || 0, 10] },
   { id: 'park3', icon: '🌳', text: 'Fă 3 parcuri', reward: 400, goal: c => [count(c, 'park'), 3] },
   { id: 'ranch1', icon: '🐄', text: 'Construiește o fermă de animale', reward: 400, goal: c => [count(c, 'ranch'), 1] },
   { id: 'farm6', icon: '🥕', text: 'Plantează 6 pătrățele de legume', reward: 300, goal: c => [count(c, 'farm'), 6] },
@@ -33,6 +34,7 @@ export const MISSIONS = [
   { id: 'cafe', icon: '☕', text: 'Deschide o cafenea', reward: 400, goal: c => [Math.min(1, count(c, 'cafe')), 1] },
   { id: 'gas', icon: '⛽', text: 'Construiește o benzinărie', reward: 600, goal: c => [Math.min(1, count(c, 'gas')), 1] },
   { id: 'airport', icon: '✈️', text: 'Fă un aeroport de cel puțin 8 pătrățele', reward: 2500, goal: c => [Math.min(8, count(c, 'airport')), 8] },
+  { id: 'quiz100', icon: '🧠', text: 'Răspunde corect la 100 de întrebări', reward: 3000, goal: (c, q) => [q.quizTotal || 0, 100] },
   { id: 'pop3000', icon: '🌆', text: 'Ajungi la 3.000 de locuitori', reward: 5000, goal: c => [c.stats.pop, 3000] },
 ];
 const BY_ID = Object.fromEntries(MISSIONS.map(m => [m.id, m]));

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import * as S from './net/social.js';
 import { LOOKS, SHIRTS, EMOJIS } from './game/avatars.js';
+import { QuizButton } from './Quiz.jsx';
 
 const STALE = 30000; // cine n-a mai dat semn de viață de 30 de secunde a plecat
 
@@ -103,11 +104,12 @@ export function useRoom(social, g, ui) {
 }
 
 // bara din stânga: plimbă-te, emoji, cum arată personajul, poză
-export function PlayBar({ ui, g, room }) {
+export function PlayBar({ ui, g, room, onQuiz }) {
   const [dress, setDress] = useState(false);
   const n = room.players.length;
   return (
     <div className="playbar">
+      <QuizButton onClick={onQuiz} />
       <button className={'icon walk' + (ui.walking ? ' on' : '')} onClick={() => g.toggleWalk()}
         title={ui.walking ? 'Oprește plimbarea' : 'Plimbă-te prin oraș cu personajul tău'} aria-label="Plimbă-te">
         {ui.walking ? '🛑' : '🚶'}

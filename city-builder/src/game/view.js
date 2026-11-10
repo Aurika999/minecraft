@@ -1069,11 +1069,14 @@ export class CityView {
     return best;
   }
 
-  // câte un avion pe fiecare pistă (cel mult 3)
+  // câte un avion pe fiecare pistă (cel mult 3). Harta se redesenează des cât crește orașul,
+  // așa că avioanele pistelor care au rămas la fel se păstrează, cu tot cu zborul lor
   syncPlanes() {
-    this.planes ||= [];
-    for (const pl of this.planes) { this.scene.remove(pl.grp); }
+    const key = rw => `${rw.x},${rw.z},${rw.len},${rw.yaw}`;
+    const old = new Map((this.planes || []).map(pl => [key(pl.rw), pl]));
     this.planes = this.runways.slice(0, 3).map((rw, k) => {
+      const keep = old.get(key(rw));
+      if (keep) { old.delete(key(rw)); return keep; }
       const grp = new THREE.Group(), mat = c => new THREE.MeshLambertMaterial({ color: c });
       const add = (geo, c, x, y, z) => { const m = new THREE.Mesh(geo, mat(c)); m.position.set(x, y, z); m.castShadow = true; grp.add(m); };
       add(new THREE.BoxGeometry(.62, .1, .1), 0xf7f7f7, 0, .05, 0);
@@ -1084,23 +1087,34 @@ export class CityView {
       add(new THREE.BoxGeometry(.08, .015, .26), 0xe0e0e0, -.28, .1, 0);
       add(new THREE.BoxGeometry(.5, .012, .102), 0xe53935, 0, .07, 0);
       this.scene.add(grp);
-      return { grp, rw, t: k * 5 };
+      return { grp, rw, t: k * 9 };
     });
+    // pistele demolate își iau avionul cu ele
+    for (const pl of old.values()) {
+      this.scene.remove(pl.grp);
+      pl.grp.traverse(o => { o.geometry?.dispose(); o.material?.dispose(); });
+    }
   }
 
-  // avionul stă la capătul pistei, prinde viteză, se ridică și zboară departe; apoi vine altul
+  // un ciclu: avionul așteaptă la capătul pistei, prinde viteză și decolează, zboară departe;
+  // apoi vine altul din spate, coboară, atinge pista, frânează și se oprește
   updatePlanes(dt) {
+    const T = 27;
     for (const pl of this.planes || []) {
-      const { rw } = pl, T = 16;
+      const { rw } = pl, L = rw.len, lift = L * .55;
       pl.t = (pl.t + dt) % T;
-      const t = pl.t, L = rw.len;
+      const t = pl.t;
       let s = 0, y = 0, pitch = 0, show = true;
-      if (t < 2) s = 0;
-      else if (t < 7) s = Math.pow((t - 2) / 5, 2) * L * .9;
-      else if (t < 11) s = L * .9 + (t - 7) * L * .36;
+      if (t < 2) s = 0; // așteaptă
+      else if (t < 7) s = Math.pow((t - 2) / 5, 2) * L * .9; // prinde viteză
+      else if (t < 11) s = L * .9 + (t - 7) * L * .36; // zboară departe
+      else if (t < 14) show = false;
+      else if (t < 19) s = -1.3 * L + (t - 14) / 5 * 1.45 * L; // vine să aterizeze
+      else if (t < 23) { const u = (t - 19) / 4; s = .15 * L + (1 - (1 - u) * (1 - u)) * .7 * L; } // frânează pe pistă
+      else if (t < 25) s = .85 * L; // stă la capăt
       else show = false;
-      const lift = L * .55;
-      if (s > lift) { y = (s - lift) * .32; pitch = Math.min(.28, (s - lift) * .25); }
+      if (t < 11 && s > lift) { y = (s - lift) * .32; pitch = Math.min(.28, (s - lift) * .25); }
+      if (t >= 14 && t < 19 && s < .15 * L) { y = (.15 * L - s) * .3; pitch = .06; }
       pl.grp.visible = show;
       pl.grp.position.set(rw.x + rw.al[0] * (s - .3), y + .02, rw.z + rw.al[1] * (s - .3));
       pl.grp.rotation.set(0, rw.yaw, pitch);

@@ -76,6 +76,7 @@ export const sfx = {
     [[523, 0], [659, .12], [784, .24], [1047, .4]].forEach(([f, at]) => tone({ f, type: 'triangle', at, dur: at > .3 ? .6 : .16, vol: .22 }));
     [[262, .4], [392, .4]].forEach(([f, at]) => tone({ f, type: 'sine', at, dur: .6, vol: .12 }));
   },
+  wrong() { if (!ready()) return; tone({ f: 330, f2: 220, type: 'triangle', dur: .35, vol: .14 }); },
   heart() { if (!ready()) return; tone({ f: 880, f2: 1320, dur: .18, vol: .1, type: 'sine' }); },
   ding() { if (!ready()) return; tone({ f: 1480, type: 'sine', dur: .35, vol: .07 }); tone({ f: 2960, type: 'sine', dur: .2, vol: .02 }); },
   honk() { if (!ready()) return; const f = 330 + Math.random() * 120; tone({ f, type: 'square', dur: .22, vol: .045, filter: 1400 }); tone({ f: f * 1.26, type: 'square', dur: .22, vol: .035, filter: 1400 }); },

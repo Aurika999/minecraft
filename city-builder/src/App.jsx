@@ -4,6 +4,7 @@ import { TOOLS, TOOL, ANIMALS } from './game/config.js';
 import { useInstall, isIOS, isSecure } from './install.js';
 import { useSocial, SocialButton, SocialPanel, VisitBanner } from './Social.jsx';
 import { useRoom, PlayBar } from './Together.jsx';
+import { QuizPanel } from './Quiz.jsx';
 import { MissionsButton, MissionsPanel, Party, SoundToggles, SoundButton } from './Fun.jsx';
 
 const fmt = n => Math.round(n).toLocaleString('ro-RO');
@@ -31,7 +32,7 @@ export default function App() {
         <>
           <TopBar ui={ui} g={g} setPanel={setPanel} social={social} />
           {ui.readOnly && <VisitBanner ui={ui} g={g} room={room} />}
-          <PlayBar ui={ui} g={g} room={room} />
+          <PlayBar ui={ui} g={g} room={room} onQuiz={() => setPanel('quiz')} />
           <Messages list={ui.messages} />
           {ui.info && <Info info={ui.info} g={g} money={ui.money} readOnly={ui.readOnly} onClose={() => g.select(null)} />}
           <MapButtons g={g} sky={ui.sky} low={!toolsOpen || (ui.readOnly && !ui.canBuild)} />
@@ -41,6 +42,7 @@ export default function App() {
           {panel === 'budget' && <Budget ui={ui} g={g} onClose={() => setPanel(null)} />}
           {panel === 'menu' && <Menu g={g} onClose={() => setPanel(null)} onInstall={() => setPanel('install')} />}
           {panel === 'install' && <InstallHelp onClose={() => setPanel(null)} />}
+          {panel === 'quiz' && <QuizPanel g={g} Modal={Modal} onClose={() => setPanel(null)} />}
           {panel === 'missions' && <MissionsPanel ui={ui} Modal={Modal} onClose={() => setPanel(null)} />}
           {ui.celebrate && <Party key={ui.celebrate.id} p={ui.celebrate} g={g} />}
           {ui.welcome && <Welcome onStart={() => g.closeWelcome()} onInstall={() => setPanel('install')} />}
@@ -259,6 +261,15 @@ function Budget({ ui, g, onClose }) {
           </tbody>
         </table>
       ) : <p className="muted">Primul raport apare la sfârșitul lunii.</p>}
+      <div className="quiz-money">
+        <b>❓ Bani din răspunsuri la întrebări</b>
+        <table className="budget">
+          <tbody>
+            <tr><td>Azi ({ui.quiz.correct} răspunsuri corecte)</td><td className="pos">+{fmt(ui.quiz.today)} $</td></tr>
+            <tr className="total"><td>În total ({ui.quiz.answers} răspunsuri corecte)</td><td className="pos">+{fmt(ui.quiz.total)} $</td></tr>
+          </tbody>
+        </table>
+      </div>
       <label className="tax">
         <span>Taxe: <b>{ui.tax}%</b></span>
         <input type="range" min="0" max="20" value={ui.tax} onChange={e => g.setTax(+e.target.value)} />

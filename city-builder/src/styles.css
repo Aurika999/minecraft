@@ -281,3 +281,26 @@ p.center { text-align: center; }
 .city-stats { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
 .city-stats .chip { box-shadow: none; background: rgba(0, 0, 0, .05); }
 .city-stats .chip.neg { color: var(--neg); }
+
+/* întrebări cu premii */
+.playbar .quiz-btn { width: 52px; height: 52px; font-size: 26px; border-radius: 16px; background: #fff3c4; }
+.quiz-cats { display: flex; flex-wrap: wrap; gap: 5px; margin: 8px 0; }
+.quiz-cats .mini-btn { font-size: 12.5px; padding: 5px 8px; }
+.quiz-cats .mini-btn.on { background: var(--accent); color: #fff; }
+.quiz-score { font-size: 13.5px; color: var(--muted); margin: 4px 0 10px; }
+.quiz-q { text-align: center; margin: 6px 0 12px; }
+.quiz-q h3 { font-size: 19px; margin: 8px 0 0; }
+.quiz-q .flag { width: 150px; height: 100px; border-radius: 6px; box-shadow: 0 2px 10px rgba(0, 0, 0, .2); }
+.quiz-opts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.quiz-opt { padding: 12px 10px; border-radius: 12px; background: #eef4ff; font-weight: 700; font-size: 15px; min-height: 52px; box-shadow: 0 2px 0 rgba(0, 0, 0, .1); }
+.quiz-opt:not(:disabled):hover { background: #dce8ff; }
+.quiz-opt.right { background: #43a047; color: #fff; }
+.quiz-opt.wrong { background: #e53935; color: #fff; }
+.quiz-opt.dim { opacity: .5; }
+.quiz-opt:disabled { cursor: default; }
+.quiz-result { margin-top: 12px; display: grid; gap: 8px; text-align: center; padding: 10px; border-radius: 12px; }
+.quiz-result.good { background: #e8f5e9; color: #1b5e20; }
+.quiz-result.bad { background: #ffebee; color: #b71c1c; }
+@media (max-width: 640px) { .playbar .quiz-btn { width: 44px; height: 44px; font-size: 22px; } .quiz-opts { grid-template-columns: 1fr; } }
+.quiz-money { margin: 12px 0 4px; padding: 10px 12px; border-radius: 12px; background: #fff8dc; }
+.quiz-money .budget { margin-top: 6px; }
