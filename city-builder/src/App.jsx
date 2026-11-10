@@ -123,6 +123,7 @@ function Info({ info, g, money, readOnly, onClose }) {
       <Meter label="Valoarea terenului" v={info.value} good />
       <Meter label="Poluare" v={info.pollution} />
       {info.problem && <p className="problem">⚠ {info.problem}</p>}
+      {info.note && <p className="note">{info.note}</p>}
     </aside>
   );
 }
@@ -338,7 +339,7 @@ function GuideLink() {
   return (
     <a className="guide-btn" href={GUIDE} target="_blank" rel="noopener">
       <span>📖</span>
-      <span><b>Ghidul jocului</b><small>Tot despre joc, cu imagini (PDF, 11 pagini)</small></span>
+      <span><b>Ghidul jocului</b><small>Tot despre joc, cu imagini (PDF, 15 pagini)</small></span>
     </a>
   );
 }

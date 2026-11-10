@@ -9,6 +9,10 @@ export const GRASS = 0, WATER = 1, FOREST = 2;
 export const ZONES = new Set(['R', 'H', 'C', 'I']);
 // blocurile folosesc aceeași cerere ca locuințele
 const demandKey = k => k === 'H' ? 'R' : k;
+// locuri de muncă în servicii și afaceri (pe pătrățel): ajută și ele oamenii să se mute în oraș
+const SERVICE_JOBS = { police: 15, fire: 15, school: 20, station: 20, power: 20, water: 5, fun: 12, ranch: 4, cafe: 10, gas: 8, parking: 2, airport: 15 };
+// cât de mică poate fi cererea ca pe o zonă goală de case sau blocuri să înceapă totuși construcția
+const START_DEMAND = -.35;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
 // pod peste drum sau peste cale ferată. level ține:
@@ -173,6 +177,7 @@ export class City {
       const k = this.kind[i], l = this.level[i];
       if (k === 'R' || k === 'H') { const n = (k === 'H' ? RESIDENTS_H : RESIDENTS)[l]; pop += n; vSum += this.value[i] * n; }
       else if (k === 'C') jobsC += JOBS_C[l];
+      else if (SERVICE_JOBS[k]) jobsC += SERVICE_JOBS[k];
       else if (k === 'I') jobsI += JOBS_I[l];
     }
     const jobs = jobsC + jobsI, taxEff = (this.tax - 9) * .04;
@@ -211,8 +216,10 @@ export class City {
       const max = !ok ? 0 : k === 'H' ? (!this.watered[i] ? 0 : v > .62 ? 3 : v > .45 ? 2 : 1)
         : !this.watered[i] ? 1 : v > .7 ? 3 : v > .5 ? 2 : 1;
       const dm = this.demand[demandKey(k)];
-      if (lvl < max && dm > 0) {
-        if (Math.random() < .015 + .05 * dm) { this.level[i]++; changed = true; }
+      // prima casă sau primul bloc de pe o zonă goală apare și când cererea e puțin scăzută
+      const need = lvl === 0 && (k === 'R' || k === 'H') ? START_DEMAND : 0;
+      if (lvl < max && dm > need) {
+        if (Math.random() < (lvl === 0 ? .035 : .015) + .05 * Math.max(0, dm)) { this.level[i]++; changed = true; }
       } else if (lvl > max) {
         if (Math.random() < .04) { this.level[i]--; changed = true; }
       } else if (dm < -.3 && lvl > 0 && Math.random() < .01) { this.level[i]--; changed = true; }
@@ -386,7 +393,15 @@ export class City {
       if (!info.road) info.problem = 'Nu are drum în apropiere.';
       else if (!info.powered) info.problem = 'Nu are curent electric.';
       else if (!info.watered) info.problem = k === 'H' ? 'Blocurile au nevoie de apă ca să fie construite.' : 'Nu are apă, așa că rămâne mică.';
-      else if (this.demand[demandKey(k)] <= 0) info.problem = 'Nu e cerere pentru acest tip de zonă acum.';
+      else {
+        const dm = this.demand[demandKey(k)], empty = !l, need = empty && (k === 'R' || k === 'H') ? START_DEMAND : 0;
+        if (dm <= need) info.problem = k === 'R' || k === 'H'
+          ? 'Sunt prea puține locuri de muncă pentru câți oameni locuiesc deja. Construiește 🏬 Comerț sau 🏭 Industrie (sau o cafenea, o școală, o benzinărie), apoi blocurile vor crește.'
+          : k === 'C' ? 'Sunt prea multe magazine pentru câți oameni sunt. Construiește 🏠 Locuințe sau 🏢 Blocuri.'
+            : 'Sunt prea multe fabrici pentru câți oameni sunt. Construiește 🏠 Locuințe sau 🏢 Blocuri.';
+        // totul e în regulă, doar trebuie puțin timp
+        else if (empty) info.note = `🏗️ Totul e gata! ${k === 'H' ? 'Blocul' : k === 'R' ? 'Casa' : k === 'C' ? 'Magazinul' : 'Fabrica'} se construiește singur(ă) în câteva secunde, cât timpul merge (▶).`;
+      }
     }
     return info;
   }

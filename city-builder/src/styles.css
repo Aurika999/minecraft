@@ -304,3 +304,4 @@ p.center { text-align: center; }
 @media (max-width: 640px) { .playbar .quiz-btn { width: 44px; height: 44px; font-size: 22px; } .quiz-opts { grid-template-columns: 1fr; } }
 .quiz-money { margin: 12px 0 4px; padding: 10px 12px; border-radius: 12px; background: #fff8dc; }
 .quiz-money .budget { margin-top: 6px; }
+.info .note { background: #e8f5e9; color: #1b5e20; padding: 8px 10px; border-radius: 10px; font-size: 14px; margin: 8px 0 0; }
