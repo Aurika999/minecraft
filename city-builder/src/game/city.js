@@ -10,7 +10,7 @@ export const ZONES = new Set(['R', 'H', 'C', 'I']);
 // blocurile folosesc aceeași cerere ca locuințele
 const demandKey = k => k === 'H' ? 'R' : k;
 // locuri de muncă în servicii și afaceri (pe pătrățel): ajută și ele oamenii să se mute în oraș
-const SERVICE_JOBS = { police: 15, fire: 15, school: 20, station: 20, power: 20, water: 5, fun: 12, ranch: 4, cafe: 10, gas: 8, parking: 2, airport: 15, beach: 3 };
+const SERVICE_JOBS = { police: 15, fire: 15, school: 20, station: 20, power: 20, water: 5, fun: 12, ranch: 4, cafe: 10, gas: 8, parking: 2, airport: 15, beach: 3, heli: 6 };
 // cât de mică poate fi cererea ca pe o zonă goală de case sau blocuri să înceapă totuși construcția
 const START_DEMAND = -.35;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -69,7 +69,7 @@ export class City {
     this.nearWater = new Uint8Array(n);
     this.value = new Float32Array(n);
     this.pollution = new Float32Array(n);
-    this.cover = { police: new Float32Array(n), fire: new Float32Array(n), school: new Float32Array(n), park: new Float32Array(n), garden: new Float32Array(n), station: new Float32Array(n), fun: new Float32Array(n), cafe: new Float32Array(n), parking: new Float32Array(n), airport: new Float32Array(n), beach: new Float32Array(n) };
+    this.cover = { police: new Float32Array(n), fire: new Float32Array(n), school: new Float32Array(n), park: new Float32Array(n), garden: new Float32Array(n), station: new Float32Array(n), fun: new Float32Array(n), cafe: new Float32Array(n), parking: new Float32Array(n), airport: new Float32Array(n), beach: new Float32Array(n), heli: new Float32Array(n) };
   }
 
   static create(seed = (Math.random() * 1e9) | 0) {
@@ -162,11 +162,11 @@ export class City {
       } else if (k === 'wind' || k === 'solar') radiate(x, z, TOOL[k].radius, j => { powered[j] = 1; });
       else if (k === 'water') radiate(x, z, TOOL.water.radius, j => { watered[j] = 1; });
       else if (cover[k]) radiate(x, z, TOOL[k].radius, (j, f) => { cover[k][j] = Math.max(cover[k][j], f); });
-      if (k === 'airport') radiate(x, z, 3, (j, f) => { pollution[j] = Math.min(1, pollution[j] + .1 * f); }); // zgomotul avioanelor
+      if (k === 'airport' || k === 'heli') radiate(x, z, 3, (j, f) => { pollution[j] = Math.min(1, pollution[j] + .1 * f); }); // zgomotul avioanelor
       else if (k === 'I' && level[i]) radiate(x, z, 5, (j, f) => { pollution[j] = Math.min(1, pollution[j] + .12 * level[i] * f); });
     }
     for (let i = 0; i < N * N; i++) {
-      value[i] = clamp(.42 + .22 * cover.park[i] + .14 * cover.garden[i] + .1 * cover.station[i] + .12 * cover.fun[i] + .12 * cover.police[i] + .1 * cover.school[i] + .06 * cover.fire[i] + .1 * cover.cafe[i] + .04 * cover.parking[i] + .08 * cover.airport[i] + .1 * cover.beach[i]
+      value[i] = clamp(.42 + .22 * cover.park[i] + .14 * cover.garden[i] + .1 * cover.station[i] + .12 * cover.fun[i] + .12 * cover.police[i] + .1 * cover.school[i] + .06 * cover.fire[i] + .1 * cover.cafe[i] + .04 * cover.parking[i] + .08 * cover.airport[i] + .1 * cover.beach[i] + .06 * cover.heli[i]
         + .08 * this.nearWater[i] - .55 * pollution[i], 0, 1);
     }
   }

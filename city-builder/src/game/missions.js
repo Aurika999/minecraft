@@ -32,6 +32,7 @@ export const MISSIONS = [
   { id: 'pop1000', icon: '🏙️', text: 'Ajungi la 1.000 de locuitori', reward: 2000, goal: c => [c.stats.pop, 1000] },
   { id: 'happy', icon: '😊', text: 'Oameni fericiți: 75% mulțumire, cu cel puțin 200 de locuitori', reward: 1500, goal: c => [c.stats.pop >= 200 ? Math.round(c.stats.happiness * 100) : 0, 75] },
   { id: 'beach', icon: '🏖️', text: 'Fă o plajă pe malul lacului', reward: 400, goal: c => [Math.min(1, count(c, 'beach')), 1] },
+  { id: 'heli', icon: '🚁', text: 'Construiește un heliport', reward: 600, goal: c => [Math.min(1, count(c, 'heli')), 1] },
   { id: 'cafe', icon: '☕', text: 'Deschide o cafenea', reward: 400, goal: c => [Math.min(1, count(c, 'cafe')), 1] },
   { id: 'gas', icon: '⛽', text: 'Construiește o benzinărie', reward: 600, goal: c => [Math.min(1, count(c, 'gas')), 1] },
   { id: 'airport', icon: '✈️', text: 'Fă un aeroport de cel puțin 8 pătrățele', reward: 2500, goal: c => [Math.min(8, count(c, 'airport')), 8] },

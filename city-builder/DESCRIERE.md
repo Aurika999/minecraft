@@ -294,6 +294,7 @@ Fără acești pași jocul merge ca înainte, iar 👥 spune doar că funcția n
 - **Casele mari** sunt conace cu aripi, portic cu coloane, balcon și fântână rotundă în curte.
 - **☕ Cafenea** (500 $, +40 $/lună): terasă cu umbrele; scumpește terenul din jur.
 - **🏖️ Plajă** (200 $ pătrățelul, +25 $/lună): doar pe malul apei. Nisip, umbrele colorate, prosoape și șezlonguri cu oameni la soare, castele de nisip, mingi, turn de salvamar și înotători cu colac.
+- **🚁 Heliport** (1.500 $, +60 $/lună): platformă cu cercul galben și litera H, lumini, cabană și mânecă de vânt. Elicopterul pornește elicea, decolează, face un cerc deasupra orașului și aterizează la loc.
 - **⛽ Benzinărie** (900 $, +70 $/lună): copertină, pompe, magazin.
 - **🅿️ Parcare** (120 $ pe pătrățel, +12 $/lună): mașini parcate și semnul P.
 - **✈️ Aeroport** (600 $ pe pătrățel, +45 $/lună): trage o suprafață lungă (de exemplu 2 × 5). Primul rând e pista, al doilea are turnul de control, terminalul, hangarul și un avion parcat. Pe pistă avioanele decolează și aterizează, și cât timp jocul merge.

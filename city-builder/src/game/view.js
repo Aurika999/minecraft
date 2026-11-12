@@ -713,6 +713,7 @@ export class CityView {
     this.lamps = [];
     this.cityRef = city;
     this.runways = [];
+    this.helipads = [];
     const roads = [], rails = [];
     this.turbines = [];
     this.ranchSpots = [];
@@ -754,6 +755,7 @@ export class CityView {
       else if (k === 'fun') gc = 0xf0dfc4;
       else if (k === 'parking') gc = COL.asphalt;
       else if (k === 'beach') gc = COL.sand;
+      else if (k === 'heli') gc = COL.paving;
       else if (k === 'airport') gc = COL.apron;
       else if (k === 'cafe' || k === 'gas' || k === 'police' || k === 'fire' || k === 'school') gc = COL.paving;
       else if (t === FOREST) gc = COL.forest;
@@ -921,6 +923,7 @@ export class CityView {
     this.stations = stations;
     this.sky.setLamps(this.lamps);
     this.syncPlanes();
+    this.syncHelis();
     // păstrează cum erau barierele (sus sau jos), ca să nu sară la reconstruire
     const old = new Map(this.barriers.map(b => [`${b.i}:${b.hx}:${b.hz}`, b.a]));
     for (const b of barriers) b.a = old.get(`${b.i}:${b.hx}:${b.hz}`) ?? b.a;
@@ -1119,6 +1122,73 @@ export class CityView {
       pl.grp.visible = show;
       pl.grp.position.set(rw.x + rw.al[0] * (s - .3), y + .02, rw.z + rw.al[1] * (s - .3));
       pl.grp.rotation.set(0, rw.yaw, pitch);
+    }
+  }
+
+  // câte un elicopter pe fiecare heliport (cel mult 6); se păstrează când harta se redesenează
+  syncHelis() {
+    const key = h => `${h.x.toFixed(2)},${h.z.toFixed(2)}`;
+    const old = new Map((this.helis || []).map(h => [key(h.pad), h]));
+    const COLS = [0xe53935, 0x1e88e5, 0xffb300, 0x43a047, 0x8e24aa];
+    this.helis = this.helipads.slice(0, 6).map((pad, k) => {
+      const keep = old.get(key(pad));
+      if (keep) { old.delete(key(pad)); return keep; }
+      const grp = new THREE.Group(), col = COLS[pad.v % COLS.length], mat = c => new THREE.MeshLambertMaterial({ color: c });
+      const add = (geo, c, x, y, z, parent = grp) => { const m = new THREE.Mesh(geo, mat(c)); m.position.set(x, y, z); m.castShadow = true; parent.add(m); return m; };
+      // corpul (botul spre +x), geamul, coada, patinele
+      add(new THREE.SphereGeometry(.11, 14, 10).scale(1.25, .9, .85), col, .02, .13, 0);
+      add(new THREE.SphereGeometry(.07, 12, 8).scale(1, .8, 1.05), 0x9fd3f0, .1, .15, 0);
+      add(new THREE.BoxGeometry(.3, .04, .04), col, -.24, .15, 0);
+      add(new THREE.BoxGeometry(.06, .1, .015), col, -.38, .19, 0);
+      for (const q of [-1, 1]) {
+        add(new THREE.BoxGeometry(.32, .015, .015), 0x333333, .02, .02, q * .09);
+        for (const s of [-1, 1]) add(new THREE.BoxGeometry(.012, .06, .012), 0x333333, .02 + s * .08, .05, q * .08);
+      }
+      add(new THREE.CylinderGeometry(.012, .012, .06), 0x333333, 0, .25, 0);
+      // elicea mare și elicea mică din coadă se învârt
+      const rotor = new THREE.Group(); rotor.position.set(0, .28, 0); grp.add(rotor);
+      for (const a of [0, Math.PI / 2]) { const b = add(new THREE.BoxGeometry(.62, .008, .035), 0x2b2b2b, 0, 0, 0, rotor); b.rotation.y = a; }
+      const tail = new THREE.Group(); tail.position.set(-.38, .22, .015); grp.add(tail);
+      add(new THREE.BoxGeometry(.012, .12, .02), 0x2b2b2b, 0, 0, 0, tail);
+      this.scene.add(grp);
+      return { grp, rotor, tail, pad, t: k * 7, spin: 0 };
+    });
+    for (const h of old.values()) {
+      this.scene.remove(h.grp);
+      h.grp.traverse(o => { o.geometry?.dispose(); o.material?.dispose(); });
+    }
+  }
+
+  // ciclul elicopterului: stă, pornește elicea, se ridică, face un cerc mare deasupra orașului, coboară și oprește
+  updateHelis(dt) {
+    const T = 26, H = 1.4, R = 3;
+    const ease = u => u * u * (3 - 2 * u);
+    for (const h of this.helis || []) {
+      h.t = (h.t + dt) % T;
+      const t = h.t, p = h.pad;
+      const f0 = p.yaw + Math.PI;
+      let y = 0, x = p.x, z = p.z, yaw = Math.atan2(-Math.cos(f0), -Math.sin(f0)), tilt = 0, rate;
+      if (t < 3) rate = 0;
+      else if (t < 5) rate = (t - 3) / 2;
+      else if (t < 21) rate = 1;
+      else if (t < 23) rate = 1 - (t - 21) / 2;
+      else rate = 0;
+      if (t >= 5 && t < 8) y = ease((t - 5) / 3) * H;
+      else if (t >= 8 && t < 18) {
+        // cerc care pleacă și se întoarce deasupra platformei
+        const u = (t - 8) / 10, f = p.yaw + Math.PI + u * Math.PI * 2;
+        const ox = p.x - R * Math.cos(p.yaw + Math.PI), oz = p.z - R * Math.sin(p.yaw + Math.PI);
+        x = ox + R * Math.cos(f); z = oz + R * Math.sin(f);
+        y = H + .35 * Math.sin(u * Math.PI);
+        const tx = -Math.sin(f), tz = Math.cos(f);
+        yaw = Math.atan2(-tz, tx);
+        tilt = -.18 * Math.sin(Math.min(1, u * 6) * Math.PI / 2) * Math.min(1, (1 - u) * 6);
+      } else if (t >= 18 && t < 21) y = (1 - ease((t - 18) / 3)) * H;
+      h.spin += dt * rate * 30;
+      h.rotor.rotation.y = h.spin;
+      h.tail.rotation.z = h.spin * 1.6;
+      h.grp.position.set(x, y + .02, z);
+      h.grp.rotation.set(0, yaw, tilt);
     }
   }
 
@@ -1756,6 +1826,24 @@ export class CityView {
     }
     if (k === 'airport') return this.airportTile(i, cx, cz, v);
     if (k === 'beach') return this.beachTile(P, i, v);
+    if (k === 'heli') {
+      // heliport: platformă de beton, cerc galben cu H, lumini pe margine, mânecă de vânt și o cabană mică
+      this.part('box', cx, 0, cz, .98, .02, .98, 0x9aa3ab, r);
+      P('cyl', 0, .02, .06, .66, .006, .66, 0x5f6870);
+      P('cyl', 0, .026, .06, .6, .004, .6, 0xffd21f);
+      P('cyl', 0, .028, .06, .53, .004, .53, 0x5f6870);
+      for (const q of [-1, 1]) P('box', q * .09, .032, .06, .045, .003, .28, 0xffffff);
+      P('box', 0, .032, .06, .18, .003, .045, 0xffffff);
+      for (let j = 0; j < 8; j++) { const a = j * Math.PI / 4; P('ball', Math.cos(a) * .36, .02, .06 + Math.sin(a) * .36, .03, .03, .03, j % 2 ? 0x4caf50 : 0xffffff); }
+      P('box', -.37, 0, -.4, .2, .16, .14, 0xf4f4f4);
+      P('box', -.37, .16, -.4, .22, .02, .16, 0xe53935);
+      P('box', -.37, .05, -.328, .05, .1, .005, 0x2b3a4a);
+      P('cyl', .42, 0, -.42, .008, .3, .008, 0xbdbdbd);
+      P('box', .46, .26, -.42, .08, .03, .03, 0xff7043);
+      const [hx, hz] = [cx + .06 * Math.sin(r), cz + .06 * Math.cos(r)];
+      this.helipads.push({ x: hx, z: hz, yaw: r, v });
+      return .2;
+    }
     return 0;
   }
 
@@ -2349,6 +2437,7 @@ export class CityView {
     }
     p.commit();
     this.updatePlanes(dt);
+    this.updateHelis(dt);
     this.sky.update(dt, this.skyState);
     this.renderer.render(this.scene, this.camera);
   }

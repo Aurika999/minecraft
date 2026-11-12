@@ -38,6 +38,7 @@ export const TOOLS = [
   { id: 'station', name: 'Gară', icon: '🚉', cost: 1500, upkeep: 30, radius: 10, mode: 'tap', help: 'Pune-o lângă șine: vin mai multe trenuri, iar terenul din jur se scumpește.' },
   { id: 'fun', name: 'Parc de distracții', icon: '🎡', cost: 1200, upkeep: 20, radius: 6, sells: 60, mode: 'rect', help: 'Roată mare, carusel, montagne russe și chioșcuri cu baloane. Vinde bilete: +60 $ pe lună fiecare pătrățel, iar oamenii din jur sunt mai fericiți.' },
   { id: 'beach', name: 'Plajă', icon: '🏖️', cost: 200, upkeep: 2, radius: 5, sells: 25, biz: true, mode: 'rect', help: 'Doar pe malul apei: nisip, umbrele, șezlonguri și oameni care fac plajă. Închiriază umbrele: +25 $ pe lună fiecare pătrățel, iar terenul din jur se scumpește.' },
+  { id: 'heli', name: 'Heliport', icon: '🚁', cost: 1500, upkeep: 15, radius: 7, sells: 60, biz: true, mode: 'tap', help: 'Pistă de elicopter cu cercul galben și litera H. Elicopterul pornește elicea, decolează, face un tur deasupra orașului și aterizează la loc. Aduce +60 $ pe lună din zboruri.' },
   { id: 'cafe', name: 'Cafenea', icon: '☕', cost: 500, upkeep: 5, radius: 4, sells: 40, biz: true, mode: 'tap', help: 'Cafenea cu terasă și umbrele: terenul din jur se scumpește. Aduce +40 $ pe lună.' },
   { id: 'gas', name: 'Benzinărie', icon: '⛽', cost: 900, upkeep: 10, sells: 70, biz: true, mode: 'tap', help: 'Benzinărie cu pompe, copertină și magazin. Aduce +70 $ pe lună. Pune-o lângă drum.' },
   { id: 'parking', name: 'Parcare', icon: '🅿️', cost: 120, upkeep: 2, radius: 3, sells: 12, biz: true, mode: 'rect', help: 'Parcare cu mașini: +12 $ pe lună pentru fiecare pătrățel. Magazinele din jur au mai mulți clienți.' },
@@ -49,14 +50,14 @@ export const TOOLS = [
 ];
 export const TOOL = Object.fromEntries(TOOLS.map(t => [t.id, t]));
 
-export const KINDS = [null, 'road', 'R', 'C', 'I', 'power', 'water', 'park', 'police', 'fire', 'school', 'garden', 'farm', 'rail', 'crossing', 'station', 'H', 'wind', 'solar', 'ranch', 'fun', 'bridge', 'cafe', 'gas', 'parking', 'airport', 'beach'];
+export const KINDS = [null, 'road', 'R', 'C', 'I', 'power', 'water', 'park', 'police', 'fire', 'school', 'garden', 'farm', 'rail', 'crossing', 'station', 'H', 'wind', 'solar', 'ranch', 'fun', 'bridge', 'cafe', 'gas', 'parking', 'airport', 'beach', 'heli'];
 export const KIND_NAME = {
   road: 'Drum', R: 'Zonă rezidențială', C: 'Zonă comercială', I: 'Zonă industrială', power: 'Centrală electrică',
   water: 'Turn de apă', park: 'Parc', police: 'Secție de poliție', fire: 'Stație de pompieri', school: 'Școală',
   garden: 'Curte cu flori', farm: 'Grădină de legume',
   fun: 'Parc de distracții', wind: 'Eoliană', solar: 'Parc de panouri solare', ranch: 'Fermă de animale',
   H: 'Zonă de blocuri', rail: 'Cale ferată', crossing: 'Trecere la nivel cu calea ferată', station: 'Gară', bridge: 'Pod',
-  cafe: 'Cafenea', gas: 'Benzinărie', parking: 'Parcare', airport: 'Aeroport', beach: 'Plajă',
+  cafe: 'Cafenea', gas: 'Benzinărie', parking: 'Parcare', airport: 'Aeroport', beach: 'Plajă', heli: 'Heliport',
 };
 // legumele: tipul depinde de pătrățel; prețul e pentru un pătrățel cules
 export const CROPS = ['Varză', 'Morcovi', 'Roșii', 'Dovleci', 'Porumb', 'Vinete', 'Grâu'];
