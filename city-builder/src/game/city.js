@@ -10,7 +10,7 @@ export const ZONES = new Set(['R', 'H', 'C', 'I']);
 // blocurile folosesc aceeași cerere ca locuințele
 const demandKey = k => k === 'H' ? 'R' : k;
 // locuri de muncă în servicii și afaceri (pe pătrățel): ajută și ele oamenii să se mute în oraș
-const SERVICE_JOBS = { police: 15, fire: 15, school: 20, station: 20, power: 20, water: 5, fun: 12, ranch: 4, cafe: 10, gas: 8, parking: 2, airport: 15 };
+const SERVICE_JOBS = { police: 15, fire: 15, school: 20, station: 20, power: 20, water: 5, fun: 12, ranch: 4, cafe: 10, gas: 8, parking: 2, airport: 15, beach: 3 };
 // cât de mică poate fi cererea ca pe o zonă goală de case sau blocuri să înceapă totuși construcția
 const START_DEMAND = -.35;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -69,7 +69,7 @@ export class City {
     this.nearWater = new Uint8Array(n);
     this.value = new Float32Array(n);
     this.pollution = new Float32Array(n);
-    this.cover = { police: new Float32Array(n), fire: new Float32Array(n), school: new Float32Array(n), park: new Float32Array(n), garden: new Float32Array(n), station: new Float32Array(n), fun: new Float32Array(n), cafe: new Float32Array(n), parking: new Float32Array(n), airport: new Float32Array(n) };
+    this.cover = { police: new Float32Array(n), fire: new Float32Array(n), school: new Float32Array(n), park: new Float32Array(n), garden: new Float32Array(n), station: new Float32Array(n), fun: new Float32Array(n), cafe: new Float32Array(n), parking: new Float32Array(n), airport: new Float32Array(n), beach: new Float32Array(n) };
   }
 
   static create(seed = (Math.random() * 1e9) | 0) {
@@ -166,7 +166,7 @@ export class City {
       else if (k === 'I' && level[i]) radiate(x, z, 5, (j, f) => { pollution[j] = Math.min(1, pollution[j] + .12 * level[i] * f); });
     }
     for (let i = 0; i < N * N; i++) {
-      value[i] = clamp(.42 + .22 * cover.park[i] + .14 * cover.garden[i] + .1 * cover.station[i] + .12 * cover.fun[i] + .12 * cover.police[i] + .1 * cover.school[i] + .06 * cover.fire[i] + .1 * cover.cafe[i] + .04 * cover.parking[i] + .08 * cover.airport[i]
+      value[i] = clamp(.42 + .22 * cover.park[i] + .14 * cover.garden[i] + .1 * cover.station[i] + .12 * cover.fun[i] + .12 * cover.police[i] + .1 * cover.school[i] + .06 * cover.fire[i] + .1 * cover.cafe[i] + .04 * cover.parking[i] + .08 * cover.airport[i] + .1 * cover.beach[i]
         + .08 * this.nearWater[i] - .55 * pollution[i], 0, 1);
     }
   }
@@ -287,6 +287,11 @@ export class City {
       if (k === tool || k === 'crossing') return tool === 'road' ? 'Aici e deja drum.' : 'Aici e deja cale ferată.';
       if (k === 'road' || k === 'rail') return null; // drum peste șine (sau invers): trecere la nivel
       return free ? null : 'Locul e ocupat. Demolează mai întâi.';
+    }
+    if (tool === 'beach' && free) {
+      const x = i % N, z = (i / N) | 0;
+      const shore = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dz]) => this.inside(x + dx, z + dz) && this.terrain[this.idx(x + dx, z + dz)] === WATER);
+      if (!shore) return 'Plaja se face doar pe malul apei: pune-o chiar lângă lac.';
     }
     if (TOOL[tool].zone && k === tool) return 'Zona e deja aici.';
     return free ? null : 'Locul e ocupat. Demolează mai întâi.';

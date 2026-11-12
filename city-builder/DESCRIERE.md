@@ -293,6 +293,7 @@ Fără acești pași jocul merge ca înainte, iar 👥 spune doar că funcția n
 - **Casele mici** au trei stiluri: căsuță cu prispă, vilă cu fântână și chiparoși, casă cu etaj, balcon și garaj. Toate au acoperiș de țiglă cu streașină, alee bej și flori la ferestre.
 - **Casele mari** sunt conace cu aripi, portic cu coloane, balcon și fântână rotundă în curte.
 - **☕ Cafenea** (500 $, +40 $/lună): terasă cu umbrele; scumpește terenul din jur.
+- **🏖️ Plajă** (200 $ pătrățelul, +25 $/lună): doar pe malul apei. Nisip, umbrele colorate, prosoape și șezlonguri cu oameni la soare, castele de nisip, mingi, turn de salvamar și înotători cu colac.
 - **⛽ Benzinărie** (900 $, +70 $/lună): copertină, pompe, magazin.
 - **🅿️ Parcare** (120 $ pe pătrățel, +12 $/lună): mașini parcate și semnul P.
 - **✈️ Aeroport** (600 $ pe pătrățel, +45 $/lună): trage o suprafață lungă (de exemplu 2 × 5). Primul rând e pista, al doilea are turnul de control, terminalul, hangarul și un avion parcat. Pe pistă avioanele decolează și aterizează, și cât timp jocul merge.

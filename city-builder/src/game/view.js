@@ -753,6 +753,7 @@ export class CityView {
       else if (k === 'ranch') gc = 0x9ad85e;
       else if (k === 'fun') gc = 0xf0dfc4;
       else if (k === 'parking') gc = COL.asphalt;
+      else if (k === 'beach') gc = COL.sand;
       else if (k === 'airport') gc = COL.apron;
       else if (k === 'cafe' || k === 'gas' || k === 'police' || k === 'fire' || k === 'school') gc = COL.paving;
       else if (t === FOREST) gc = COL.forest;
@@ -900,7 +901,7 @@ export class CityView {
       // 4 pătrățele de case alăturate se desenează ca o singură parcelă mare
       const lot = bigLots.get(i);
       const h = lot ? (lot.anchor ? this.bigHouse(cx + .5, cz + .5, this.lotFacing(city, x, z, v), lot.lvl, v) : 0)
-        : k && !ROADISH.has(k) && !RAILISH.has(k) ? this.building(k, lvl, v, cx, cz, i, this.facing(city, x, z, v, k === 'station' ? RAILISH : ROADISH)) : 0;
+        : k && !ROADISH.has(k) && !RAILISH.has(k) ? this.building(k, lvl, v, cx, cz, i, k === 'beach' ? this.waterFacing(city, x, z, v) : this.facing(city, x, z, v, k === 'station' ? RAILISH : ROADISH)) : 0;
       // semn de avertizare deasupra zonelor cu probleme: gri = fără drum, galben = fără curent, albastru = fără apă
       if (ZONES.has(k)) {
         const warn = !city.road[i] ? 0x9e9e9e : !city.powered[i] ? 0xffd21f : !city.watered[i] && lvl >= 1 ? 0x3fa9ff : 0;
@@ -1129,6 +1130,16 @@ export class CityView {
   }
 
   // clădirile se întorc cu fața spre un drum vecin
+  // plaja se uită spre apă
+  waterFacing(city, x, z, v) {
+    const dirs = [[0, 1, 0], [1, 0, Math.PI / 2], [0, -1, Math.PI], [-1, 0, -Math.PI / 2]];
+    for (const [dx, dz, r] of dirs) {
+      const a = x + dx, b = z + dz;
+      if (a >= 0 && b >= 0 && a < N && b < N && city.terrain[b * N + a] === WATER) return r;
+    }
+    return (v % 4) * Math.PI / 2;
+  }
+
   facing(city, x, z, v, want = ROADISH) {
     const dirs = [[0, 1, 0], [1, 0, Math.PI / 2], [0, -1, Math.PI], [-1, 0, -Math.PI / 2]];
     for (let j = 0; j < 4; j++) {
@@ -1744,7 +1755,84 @@ export class CityView {
       return .3;
     }
     if (k === 'airport') return this.airportTile(i, cx, cz, v);
+    if (k === 'beach') return this.beachTile(P, i, v);
     return 0;
+  }
+
+  // plajă: nisip, umbrele în dungi, prosoape, șezlonguri, oameni la soare, castel de nisip, înotători (fața spre apă = +z)
+  beachTile(P, i, v) {
+    const SKIN = [0xf1c8a5, 0xe0ac85, 0xc4906c, 0x8d5f43], SUIT = [0xe53935, 0x1e88e5, 0xffb300, 0x8e24aa, 0x00acc1, 0xff6f91, 0x43a047];
+    const UMB = [0xff5252, 0x2f80ed, 0xffc107, 0x26a69a, 0xab47bc, 0xff7043], TOWEL = [0xff8a80, 0x80d8ff, 0xfff176, 0xb9f6ca, 0xea80fc, 0xffffff];
+    const rnd = j => hash(i, j + 40);
+    // om întins pe prosop, de-a lungul lui x (dir = 1 sau -1 = unde e capul)
+    const lying = (x, z, dir, j) => {
+      const skin = pick(SKIN, v + j), suit = pick(SUIT, v + j * 3);
+      P('box', x, .016, z, .3, .006, .13, pick(TOWEL, v + j * 5));
+      P('box', x + dir * .02, .022, z, .1, .035, .07, suit);
+      P('box', x - dir * .08, .022, z, .1, .028, .055, skin);
+      P('box', x + dir * .065, .022, z, .03, .03, .05, skin);
+      P('ball', x + dir * .105, .04, z, .04, .036, .04, skin);
+      P('ball', x + dir * .112, .062, z, .038, .016, .038, pick([0x3b2a20, 0xf2d27a, 0x7a4a2a, 0x111111], v + j));
+    };
+    // om pe șezlong, pe jumătate ridicat, cu fața spre apă
+    const lounger = (x, z, j) => {
+      const skin = pick(SKIN, v + j + 1), suit = pick(SUIT, v + j * 2 + 1);
+      P('box', x, .03, z + .03, .1, .015, .2, 0xffffff);
+      for (const q of [-1, 1]) for (const w of [-.06, .1]) P('box', x + q * .045, 0, z + w, .01, .03, .01, 0xbdbdbd);
+      P('box', x, .05, z - .1, .1, .1, .015, 0xffffff, 0);
+      P('box', x, .05, z + .02, .06, .03, .1, suit);
+      P('box', x, .05, z + .12, .05, .02, .09, skin);
+      P('box', x, .07, z - .07, .06, .06, .03, suit);
+      P('ball', x, .14, z - .085, .04, .04, .04, skin);
+      if (rnd(j + 7) < .5) P('box', x, .158, z - .06, .045, .01, .015, 0x111111); // ochelari de soare
+    };
+    const umbrella = (x, z, j) => {
+      const a = pick(UMB, v + j), b = 0xffffff;
+      P('cyl', x, 0, z, .008, .3, .008, 0xf5f5f5);
+      P('cone', x, .24, z, .34, .08, .34, a);
+      P('cone', x, .27, z, .2, .05, .2, b);
+      P('cone', x, .29, z, .08, .03, .08, a);
+    };
+    const style = v % 4;
+    // două umbrele, fiecare cu oamenii ei
+    const spots = style === 1 ? [[-.25, -.18], [.22, .12]] : [[-.22, .1], [.24, -.2]];
+    spots.forEach(([x, z], j) => {
+      umbrella(x, z, j);
+      if ((v + j) % 2) { lying(x, z + .02, 1, j); if (rnd(j) < .6) lying(x - .02, z + .17, -1, j + 3); }
+      else { lounger(x - .07, z + .02, j); lounger(x + .07, z + .02, j + 2); }
+    });
+    // ceva de joacă pe nisip
+    if (style === 0 || style === 2) {
+      // castel de nisip cu un copil și o găletușă
+      const sx = style ? -.28 : .3, sz = .32;
+      P('box', sx, 0, sz, .12, .05, .12, 0xe6c47e);
+      for (const [a, b] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) { P('cyl', sx + a * .055, 0, sz + b * .055, .03, .08, .03, 0xe6c47e); P('cone', sx + a * .055, .08, sz + b * .055, .035, .03, .035, 0xd9b36a); }
+      P('cyl', sx + .12, 0, sz - .04, .03, .04, .03, pick(SUIT, v + 2));
+      P('box', sx - .1, 0, sz + .02, .04, .05, .03, pick(SUIT, v + 4));
+      P('ball', sx - .1, .07, sz + .02, .028, .028, .028, pick(SKIN, v + 3));
+    } else {
+      // minge de plajă colorată
+      P('ball', .02, .03, .36, .06, .06, .06, 0xff5252);
+      P('ball', .02, .033, .36, .062, .02, .062, 0xffffff);
+      P('ball', .02, .03, .36, .02, .061, .062, 0x2f80ed);
+    }
+    // turn de salvamar cu steag roșu, pe unele plaje
+    if (v % 6 === 3) {
+      for (const [a, b] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) P('box', .36 + a * .05, 0, -.36 + b * .05, .015, .26, .015, 0xffffff);
+      P('box', .36, .26, -.36, .14, .02, .14, 0xffffff);
+      P('box', .36, .28, -.36, .12, .1, .12, 0xe53935);
+      P('box', .36, .38, -.36, .16, .02, .16, 0xffffff);
+      P('cyl', .43, .38, -.29, .006, .14, .006, 0xbdbdbd);
+      P('box', .46, .48, -.29, .06, .04, .005, 0xe53935);
+    }
+    // înotători în apă, cu colac, chiar lângă mal
+    const swim = 1 + (v % 3 === 0);
+    for (let j = 0; j < swim; j++) {
+      const x = -.25 + j * .45 + (rnd(j + 20) - .5) * .1, z = .72 + rnd(j + 22) * .12;
+      if (rnd(j + 24) < .5) P('cyl', x, -.19, z, .1, .025, .1, pick([0xff7043, 0xffeb3b, 0xec407a, 0x29b6f6], v + j));
+      P('ball', x, -.17, z, .045, .045, .045, pick(SKIN, v + j + 2));
+    }
+    return .3;
   }
 
   // mașină parcată (fără roți care se mișcă); kind = 'police' adaugă girofarul și dunga

@@ -253,7 +253,7 @@ function Budget({ ui, g, onClose }) {
             <tr><td>Taxe încasate</td><td className="pos">+{fmt(m.income)} $</td></tr>
             {m.energy > 0 && <tr><td>Energie vândută</td><td className="pos">+{fmt(m.energy)} $</td></tr>}
             {m.tickets > 0 && <tr><td>Bilete la parcul de distracții</td><td className="pos">+{fmt(m.tickets)} $</td></tr>}
-            {m.business > 0 && <tr><td>Afaceri (cafenele, benzinării, parcări, aeroport)</td><td className="pos">+{fmt(m.business)} $</td></tr>}
+            {m.business > 0 && <tr><td>Afaceri (cafenele, benzinării, parcări, aeroport, plaje)</td><td className="pos">+{fmt(m.business)} $</td></tr>}
             {m.ranch > 0 && <tr><td>Produse de la ferme</td><td className="pos">+{fmt(m.ranch)} $</td></tr>}
             {m.farm > 0 && <tr><td>Legume vândute</td><td className="pos">+{fmt(m.farm)} $</td></tr>}
             <tr><td>Întreținere drumuri</td><td className="neg">−{fmt(m.roads)} $</td></tr>
