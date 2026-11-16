@@ -114,6 +114,20 @@ button { font: inherit; color: inherit; cursor: pointer; border: 0; background: 
 .mini-help { flex: 1; font-size: 13px; opacity: .9; }
 .mini-btn { flex: 0 0 auto; padding: 7px 12px; border-radius: 10px; background: rgba(255, 255, 255, .16); color: inherit; font-weight: 700; font-size: 14px; white-space: nowrap; }
 .mini-btn.done { background: var(--neg); color: #fff; }
+/* steaguri: alegerea din bara de jos și din panoul Info */
+.flag-pick { max-width: min(760px, 100%); background: var(--card); border-radius: 14px; box-shadow: var(--shadow); padding: 8px 8px 6px; }
+.flag-pick > b { display: block; font-size: 13px; margin: 0 4px 6px; }
+.flag-pick .flag-grid { display: flex; overflow-x: auto; scrollbar-width: thin; touch-action: pan-x; }
+.flag-pick .flag-opt { flex: 0 0 auto; width: 70px; }
+.flag-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(66px, 1fr)); gap: 6px; }
+.flag-opt { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 6px 2px; border-radius: 10px; background: rgba(0, 0, 0, .05); font-size: 11px; font-weight: 600; line-height: 1.15; text-align: center; }
+.flag-opt img { width: 42px; height: 28px; border-radius: 3px; }
+.flag-opt.on { background: var(--accent); color: #fff; }
+.flag-box { margin: 6px 0 8px; }
+.flag-box .flag-grid { max-height: 190px; overflow-y: auto; }
+.flag-now { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.flag-now img { width: 30px; height: 20px; border-radius: 2px; }
+.flag-now .mini-btn { margin-left: auto; background: rgba(0, 0, 0, .07); font-size: 12.5px; padding: 4px 10px; }
 .tools-panel { max-width: 100%; background: var(--card); border-radius: 16px; box-shadow: var(--shadow); padding: 6px; }
 .tools-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 2px 4px 6px 8px; }
 .tools-head .mini-btn { background: rgba(0, 0, 0, .07); }

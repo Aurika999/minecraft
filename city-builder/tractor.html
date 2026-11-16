@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tractorul 3D – Orașul Meu</title>
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #bfe3f5; font-family: system-ui, sans-serif; }
+    #info { position: fixed; left: 12px; top: 10px; background: rgba(255, 255, 255, .85); padding: 8px 12px; border-radius: 10px; font-size: 14px; }
+    #btns { position: fixed; left: 12px; bottom: 12px; display: flex; gap: 6px; flex-wrap: wrap; }
+    #btns button { border: 0; border-radius: 10px; padding: 8px 12px; font-weight: 700; cursor: pointer; background: #fff; box-shadow: 0 2px 6px rgba(0, 0, 0, .2); }
+  </style>
+</head>
+<body>
+  <div id="info">🚜 <b>Tractorul 3D</b> · trage cu mouse-ul ca să-l rotești, rotița = zoom</div>
+  <div id="btns"></div>
+  <script type="module" src="/src/tractor-preview.js"></script>
+</body>
+</html>

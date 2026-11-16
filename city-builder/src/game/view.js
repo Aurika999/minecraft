@@ -6,6 +6,8 @@ import { animalGeometries, TINTS } from './animals.js';
 import { PERSON_TYPES, PERSON_COLORS } from './people.js';
 import { GRASS, WATER, FOREST, ZONES, bridgeOf } from './city.js';
 import { Sky, NIGHT } from './sky.js';
+import { flagCanvas } from './flags.js';
+import { buildTractor } from './tractor3d.js';
 
 const COL = {
   grass: [0x8fd14f, 0x89cc4a, 0x96d657], forest: 0x7cc444, water: 0x3fb6e8, road: 0x70757d, mark: 0xe9e4c8,
@@ -714,6 +716,9 @@ export class CityView {
     this.cityRef = city;
     this.runways = [];
     this.helipads = [];
+    this.pharmacySigns = [];
+    this.flagSpots = [];
+    this.parkSpots = [];
     const roads = [], rails = [];
     this.turbines = [];
     this.ranchSpots = [];
@@ -749,7 +754,7 @@ export class CityView {
       else if (ZONES.has(k)) gc = lvl ? COL.lot[k] : COL[k]; // zona goală își păstrează culoarea, ca s-o recunoști
       else if (k === 'park') gc = COL.park;
       else if (k === 'garden') gc = COL.garden;
-      else if (k === 'farm') gc = COL.soil;
+      else if (k === 'farm' || k === 'field') gc = COL.soil;
       else if (k === 'solar') gc = 0xcfc8b8;
       else if (k === 'ranch') gc = 0x9ad85e;
       else if (k === 'fun') gc = 0xf0dfc4;
@@ -757,7 +762,7 @@ export class CityView {
       else if (k === 'beach') gc = COL.sand;
       else if (k === 'heli') gc = COL.paving;
       else if (k === 'airport') gc = COL.apron;
-      else if (k === 'cafe' || k === 'gas' || k === 'police' || k === 'fire' || k === 'school') gc = COL.paving;
+      else if (k === 'cafe' || k === 'gas' || k === 'pharmacy' || k === 'agro' || k === 'police' || k === 'fire' || k === 'school') gc = COL.paving;
       else if (t === FOREST) gc = COL.forest;
       // plajă: iarba liberă de lângă apă devine nisip, uneori cu un palmier
       const shore = !k && t === GRASS && [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dz]) =>
@@ -904,6 +909,10 @@ export class CityView {
       const lot = bigLots.get(i);
       const h = lot ? (lot.anchor ? this.bigHouse(cx + .5, cz + .5, this.lotFacing(city, x, z, v), lot.lvl, v) : 0)
         : k && !ROADISH.has(k) && !RAILISH.has(k) ? this.building(k, lvl, v, cx, cz, i, k === 'beach' ? this.waterFacing(city, x, z, v) : this.facing(city, x, z, v, k === 'station' ? RAILISH : ROADISH)) : 0;
+      // steagul de pe clădire (la casele mari 2×2, unul singur, în mijlocul parcelei)
+      const fl = lot ? (lot.anchor ? [i, i + 1, i + N, i + N + 1].map(j => city.flag[j]).find(f => f) : 0)
+        : city.hasBuilding(i) ? city.flag[i] : 0;
+      if (fl) this.flagSpots.push({ x: lot ? cx + .5 : cx, z: lot ? cz + .5 : cz, y: Math.max(h, .12), f: fl - 1, phase: v });
       // semn de avertizare deasupra zonelor cu probleme: gri = fără drum, galben = fără curent, albastru = fără apă
       if (ZONES.has(k)) {
         const warn = !city.road[i] ? 0x9e9e9e : !city.powered[i] ? 0xffd21f : !city.watered[i] && lvl >= 1 ? 0x3fa9ff : 0;
@@ -924,6 +933,10 @@ export class CityView {
     this.sky.setLamps(this.lamps);
     this.syncPlanes();
     this.syncHelis();
+    this.syncSigns();
+    this.syncTractors(city);
+    this.syncParked();
+    this.syncFlags();
     // păstrează cum erau barierele (sus sau jos), ca să nu sară la reconstruire
     const old = new Map(this.barriers.map(b => [`${b.i}:${b.hx}:${b.hz}`, b.a]));
     for (const b of barriers) b.a = old.get(`${b.i}:${b.hx}:${b.hz}`) ?? b.a;
@@ -1159,7 +1172,231 @@ export class CityView {
     }
   }
 
-  // ciclul elicopterului: stă, pornește elicea, se ridică, face un cerc mare deasupra orașului, coboară și oprește
+  // ---------- utilaje agricole (modele 3D; botul spre +x) ----------
+
+  // ajutor: grup nou și o funcție care pune o piesă în el; wheel = roată cu axa în lungul lui z (se rostogolește)
+  machineKit() {
+    const grp = new THREE.Group(), wheels = [], mat = c => new THREE.MeshLambertMaterial({ color: c });
+    const add = (geo, c, x, y, z, parent = grp) => { const m = new THREE.Mesh(geo, mat(c)); m.position.set(x, y, z); m.castShadow = true; parent.add(m); return m; };
+    const wheel = (r, w, x, z, hub = 0xffc107) => {
+      const m = add(new THREE.CylinderGeometry(r, r, w, 14).rotateX(Math.PI / 2), 0x222222, x, r, z);
+      add(new THREE.CylinderGeometry(r * .5, r * .5, w + .004, 8).rotateX(Math.PI / 2), hub, 0, 0, 0, m);
+      wheels.push({ m, r });
+    };
+    return { grp, wheels, add, wheel };
+  }
+
+  // tractor 3D detaliat (vezi tractor3d.js); plug = plugul din spate, trailer = remorcă în spate
+  makeTractor(col, opts) {
+    return buildTractor(col, opts);
+  }
+
+  // combină: masa de tăiere cu dinți și rabator care se învârte, cabină cu geamuri, buncăr auriu, țeava de descărcare
+  makeCombine() {
+    const { grp, wheels, add, wheel } = this.machineKit(), RED = 0xd84315;
+    add(new THREE.BoxGeometry(.26, .14, .16), RED, 0, .11, 0);
+    add(new THREE.BoxGeometry(.15, .07, .15), 0xd9a441, -.05, .25, 0);
+    add(new THREE.BoxGeometry(.095, .1, .12), 0x9fd3f0, .085, .25, 0);
+    add(new THREE.BoxGeometry(.12, .015, .14), 0xf3e2b3, .085, .305, 0);
+    add(new THREE.CylinderGeometry(.012, .012, .1), 0xd9a441, -.1, .33, .04);
+    for (const q of [-1, 1]) { wheel(.075, .045, .06, q * .1); wheel(.045, .03, -.1, q * .08); }
+    // masa de tăiere și dinții din față
+    add(new THREE.BoxGeometry(.04, .025, .02), 0x555555, .15, .06, 0);
+    add(new THREE.BoxGeometry(.07, .04, .4), 0xff5722, .2, .03, 0);
+    for (let j = 0; j < 7; j++) add(new THREE.ConeGeometry(.014, .06, 5).rotateZ(-Math.PI / 2), 0xff7043, .26, .03, -.18 + j * .06);
+    const reel = add(new THREE.CylinderGeometry(.035, .035, .38, 8).rotateX(Math.PI / 2), 0xbdbdbd, .21, .1, 0);
+    for (let j = 0; j < 4; j++) { const b = add(new THREE.BoxGeometry(.075, .008, .37), 0xff7043, 0, 0, 0, reel); b.rotation.z = j * Math.PI / 4; }
+    // țeava de descărcare, întinsă într-o parte
+    const pipe = add(new THREE.CylinderGeometry(.013, .013, .26, 8).rotateX(Math.PI / 2), RED, -.05, .27, -.17);
+    pipe.rotation.y = .3;
+    return { grp, wheels, reel };
+  }
+
+  // buldozer galben pe șenile, cu lama în față
+  makeDozer() {
+    const { grp, add } = this.machineKit(), Y = 0xf2b51c;
+    for (const q of [-1, 1]) {
+      add(new THREE.BoxGeometry(.26, .06, .05), 0x3a3a3a, 0, .03, q * .075);
+      for (let j = 0; j < 4; j++) add(new THREE.CylinderGeometry(.022, .022, .052, 10).rotateX(Math.PI / 2), 0x666666, -.09 + j * .06, .03, q * .075);
+    }
+    add(new THREE.BoxGeometry(.22, .08, .12), Y, 0, .1, 0);
+    add(new THREE.BoxGeometry(.09, .09, .1), 0x9fd3f0, -.05, .18, 0);
+    add(new THREE.BoxGeometry(.11, .015, .12), Y, -.05, .275, 0);
+    add(new THREE.CylinderGeometry(.008, .008, .08), 0x333333, .06, .18, .03);
+    for (const q of [-1, 1]) add(new THREE.BoxGeometry(.08, .015, .015), 0x555555, .14, .07, q * .06);
+    add(new THREE.BoxGeometry(.03, .08, .22), 0x8a8f94, .19, .02, 0);
+    return { grp, wheels: [] };
+  }
+
+  // câte un utilaj pe fiecare ogor (bucată lipită de teren arabil), cel mult 8; merge pe rânduri, dus-întors.
+  // Când multe pătrățele sunt coapte vine combina la seceriș; altfel ară tractorul.
+  // Utilajele se păstrează când harta se redesenează, dacă ogorul lor e tot acolo și treaba e aceeași.
+  syncTractors(city) {
+    const seen = new Uint8Array(N * N), fields = [];
+    for (let s = 0; s < N * N && fields.length < 8; s++) {
+      if (seen[s] || city.kind[s] !== 'field') continue;
+      const tiles = [], stack = [s]; seen[s] = 1;
+      while (stack.length) {
+        const i = stack.pop(), x = i % N, z = (i / N) | 0; tiles.push(i);
+        for (const [a, b] of [[x + 1, z], [x - 1, z], [x, z + 1], [x, z - 1]]) {
+          const j = b * N + a;
+          if (a >= 0 && b >= 0 && a < N && b < N && !seen[j] && city.kind[j] === 'field') { seen[j] = 1; stack.push(j); }
+        }
+      }
+      const ripe = tiles.filter(i => city.level[i] === 3).length;
+      const combine = ripe > 0 && ripe >= tiles.length * .3;
+      // traseul: pe fiecare rând de pătrățele, două benzi; șerpuiește de la un capăt la altul
+      const rows = new Map();
+      for (const i of tiles) { const x = i % N, z = (i / N) | 0; const r = rows.get(z) || [x, x]; rows.set(z, [Math.min(r[0], x), Math.max(r[1], x)]); }
+      const path = [];
+      let dir = 1;
+      for (const z of [...rows.keys()].sort((a, b) => a - b)) {
+        const [x0, x1] = rows.get(z);
+        for (const lane of [-.25, .25]) {
+          const a = x0 - N / 2 + .15, b = x1 - N / 2 + .85, wz = z - N / 2 + .5 + lane;
+          path.push(dir > 0 ? [a, wz] : [b, wz], dir > 0 ? [b, wz] : [a, wz]);
+          dir = -dir;
+        }
+      }
+      const len = [0];
+      for (let j = 1; j < path.length; j++) len.push(len[j - 1] + Math.hypot(path[j][0] - path[j - 1][0], path[j][1] - path[j - 1][1]));
+      fields.push({ key: `${s}:${tiles.length}:${combine ? 'c' : 't'}`, path, len, total: len[len.length - 1], v: city.variant[s], combine });
+    }
+    const old = new Map((this.tractors || []).map(t => [t.key, t]));
+    const COLS = [0xd32f2f, 0x2e7d32, 0x1e6fd6, 0xf57c00];
+    this.tractors = fields.map(f => {
+      const keep = old.get(f.key);
+      if (keep) { old.delete(f.key); return Object.assign(keep, f); }
+      const m = f.combine ? this.makeCombine() : this.makeTractor(COLS[f.v % COLS.length]);
+      m.grp.scale.setScalar(f.combine ? 1.5 : 1.4);
+      this.scene.add(m.grp);
+      return Object.assign(f, m, { d: (f.v * 7.3) % Math.max(1, f.total), dir: 1 });
+    });
+    for (const t of old.values()) this.dropModel(t.grp);
+  }
+
+  dropModel(grp) {
+    this.scene.remove(grp);
+    grp.traverse(o => { o.geometry?.dispose(); o.material?.dispose(); });
+  }
+
+  // utilajele parcate în fața garajelor (statice)
+  syncParked() {
+    for (const g of this.parked || []) this.dropModel(g);
+    this.parked = this.parkSpots.map(s => {
+      const m = s.type === 'combine' ? this.makeCombine() : s.type === 'dozer' ? this.makeDozer() : this.makeTractor(0x2e7d32, { plough: false, trailer: true });
+      m.grp.position.set(s.x, .015, s.z);
+      m.grp.rotation.y = s.yaw;
+      m.grp.scale.setScalar(s.scale);
+      this.scene.add(m.grp);
+      return m.grp;
+    });
+  }
+
+  // utilajul înaintează pe traseu; la capăt se întoarce și o ia înapoi. Combina merge mai încet și învârte rabatorul.
+  updateTractors(dt) {
+    for (const t of this.tractors || []) {
+      if (t.total <= 0) continue;
+      const SPEED = t.combine ? .22 : .32;
+      t.d += t.dir * SPEED * dt;
+      if (t.d >= t.total) { t.d = t.total; t.dir = -1; }
+      if (t.d <= 0) { t.d = 0; t.dir = 1; }
+      let j = 1;
+      while (j < t.len.length - 1 && t.len[j] < t.d) j++;
+      const [ax, az] = t.path[j - 1], [bx, bz] = t.path[j], seg = t.len[j] - t.len[j - 1] || 1, u = (t.d - t.len[j - 1]) / seg;
+      const dx = (bx - ax) * t.dir, dz = (bz - az) * t.dir;
+      t.grp.position.set(ax + (bx - ax) * u, .02, az + (bz - az) * u);
+      const want = Math.atan2(-dz, dx);
+      let diff = want - t.grp.rotation.y;
+      diff = Math.atan2(Math.sin(diff), Math.cos(diff));
+      t.grp.rotation.y += diff * Math.min(1, dt * 6);
+      for (const w of t.wheels) w.m.rotation.z -= SPEED * dt / (w.r * 1.4);
+      if (t.reel) t.reel.rotation.z -= dt * 4;
+    }
+  }
+
+  // steagurile de pe clădiri: catarg, bilă aurie în vârf și pânza care flutură (fiecare pânză are geometria ei)
+  syncFlags() {
+    if (!this.flagKit) {
+      this.flagKit = {
+        pole: new THREE.CylinderGeometry(.008, .01, 1, 6).translate(0, .5, 0),
+        knob: new THREE.SphereGeometry(.018, 8, 6),
+        poleMat: new THREE.MeshLambertMaterial({ color: 0xd9dde2 }),
+        knobMat: new THREE.MeshLambertMaterial({ color: 0xf2c230 }),
+        mats: [],
+      };
+    }
+    const K = this.flagKit, POLE = .42;
+    for (const f of this.flags || []) { this.scene.remove(f.grp); f.cloth.geometry.dispose(); }
+    this.flags = this.flagSpots.map(s => {
+      if (!K.mats[s.f]) {
+        const tex = new THREE.CanvasTexture(flagCanvas(s.f));
+        tex.colorSpace = THREE.SRGBColorSpace;
+        K.mats[s.f] = new THREE.MeshLambertMaterial({ map: tex, side: THREE.DoubleSide });
+      }
+      const grp = new THREE.Group();
+      grp.position.set(s.x, s.y, s.z);
+      const pole = new THREE.Mesh(K.pole, K.poleMat); pole.scale.y = POLE; pole.castShadow = true; grp.add(pole);
+      const knob = new THREE.Mesh(K.knob, K.knobMat); knob.position.y = POLE + .01; grp.add(knob);
+      // pânza: marginea din stânga lipită de catarg, x de la 0 la 1
+      const geo = new THREE.PlaneGeometry(1, 1, 10, 2).translate(.5, 0, 0);
+      const cloth = new THREE.Mesh(geo, K.mats[s.f]);
+      cloth.scale.set(.3, .2, .3);
+      cloth.position.set(.008, POLE - .11, 0);
+      cloth.castShadow = true;
+      grp.add(cloth);
+      this.scene.add(grp);
+      return { grp, cloth, base: Float32Array.from(geo.attributes.position.array), phase: s.phase };
+    });
+  }
+
+  // pânzele flutură în vânt și stau mereu pe trei sferturi spre cameră, ca să se vadă desenul
+  updateFlags() {
+    if (!this.flags?.length) return;
+    const t = performance.now() / 1000;
+    const face = Math.atan2(this.camera.position.x - this.target.x, this.camera.position.z - this.target.z) - .45;
+    for (const f of this.flags) {
+      f.grp.rotation.y = face;
+      const pos = f.cloth.geometry.attributes.position, b = f.base;
+      for (let k = 0; k < pos.count; k++) {
+        const u = b[k * 3];
+        pos.array[k * 3 + 2] = Math.sin(t * 5 + u * 6 + f.phase) * .12 * u;
+        pos.array[k * 3 + 1] = b[k * 3 + 1] - .04 * u * u;
+      }
+      pos.needsUpdate = true;
+    }
+  }
+
+  // firmele cu numele farmaciei „REIVAN”: o textură desenată o singură dată, câte o plăcuță pe fiecare farmacie
+  syncSigns() {
+    if (!this.reivanTex) {
+      const c = document.createElement('canvas'); c.width = 512; c.height = 80;
+      const x = c.getContext('2d');
+      x.fillStyle = '#1b8a3c'; x.fillRect(0, 0, 512, 80);
+      x.fillStyle = '#ffffff'; x.fillRect(4, 4, 504, 4); x.fillRect(4, 72, 504, 4);
+      // crucea verde pe fond alb, în stânga
+      x.fillRect(14, 12, 56, 56);
+      x.fillStyle = '#2ecc40'; x.fillRect(35, 18, 14, 44); x.fillRect(20, 33, 44, 14);
+      x.fillStyle = '#ffffff'; x.font = 'bold 58px "Segoe UI", Arial, sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
+      x.fillText('REIVAN', 290, 43);
+      this.reivanTex = new THREE.CanvasTexture(c);
+      this.reivanTex.colorSpace = THREE.SRGBColorSpace;
+      this.reivanTex.anisotropy = 4;
+      this.reivanMat = new THREE.MeshBasicMaterial({ map: this.reivanTex });
+      this.reivanGeo = new THREE.PlaneGeometry(1, 1);
+    }
+    for (const m of this.signMeshes || []) this.scene.remove(m);
+    this.signMeshes = this.pharmacySigns.map(s => {
+      const m = new THREE.Mesh(this.reivanGeo, this.reivanMat);
+      m.position.set(s.x, s.y, s.z);
+      m.rotation.y = s.r;
+      m.scale.set(s.w, s.h, 1);
+      this.scene.add(m);
+      return m;
+    });
+  }
+
+  // ciclul elicopterului:stă, pornește elicea, se ridică, face un cerc mare deasupra orașului, coboară și oprește
   updateHelis(dt) {
     const T = 26, H = 1.4, R = 3;
     const ease = u => u * u * (3 - 2 * u);
@@ -1789,6 +2026,128 @@ export class CityView {
         P('box', q * .47, 0, .1, .03, .07, .6, COL.hedge);
       }
       return .65;
+    }
+    if (k === 'field') {
+      // teren arabil: 5 rânduri în lungul lui x; arat = brazde, apoi cultura crește pe rânduri
+      const crop = v % 4, rows = [-.4, -.2, 0, .2, .4], ripe = lvl === 3;
+      if (lvl === 4) {
+        // după seceriș: miriște aurie, baloți rotunzi de paie și câțiva snopi
+        for (const z of rows) this.part('box', cx, 0, cz + z, .98, .035, .16, crop === 2 ? 0x8a7a4a : 0xd8b85a);
+        const spots = [[-.25, -.18], [.22, .2], [.28, -.3]];
+        spots.slice(0, 2 + (v % 2)).forEach(([bx, bz], j) => {
+          const x = cx + bx + (hash(i, j) - .5) * .1, z = cz + bz + (hash(i, j + 5) - .5) * .1;
+          this.part('cyl', x, 0, z, .2, .15, .2, 0xe2bf55);
+          this.part('cyl', x, .15, z, .14, .006, .14, 0xc9a23e);
+        });
+        for (let j = 0; j < 2; j++) {
+          const x = cx - .1 + j * .32, z = cz + .02 - j * .1;
+          this.part('cone', x, 0, z, .07, .14, .07, 0xe8c766);
+          this.part('box', x, .05, z, .06, .015, .065, 0xb08a30);
+        }
+        return .15;
+      }
+      for (const z of rows) this.part('box', cx, 0, cz + z, .98, .03, .07, COL.furrow);
+      if (!lvl) return .05;
+      if (lvl === 1) { // răsaduri mici pe rânduri
+        for (const z of rows) this.part('box', cx, .03, cz + z, .9, .025, .04, 0x7cbf4a);
+        return .1;
+      }
+      const s = ripe ? 1 : .65;
+      if (crop === 0) { // grâu: covor des, verde apoi auriu, cu spice
+        for (const z of rows) {
+          this.part('box', cx, .02, cz + z, .96, .18 * s, .15, ripe ? 0xd9a93a : 0x9cc84a);
+          this.part('box', cx, .02 + .18 * s, cz + z, .94, .035, .12, ripe ? 0xf2cf5b : 0xb8d86a);
+        }
+      } else if (crop === 1) { // porumb: tulpini înalte, cu știuleți galbeni când e copt
+        for (const z of rows) {
+          this.part('box', cx, .02, cz + z, .94, .34 * s, .08, ripe ? 0xb9a35a : 0x4f9a3a);
+          this.part('box', cx, .02 + .34 * s, cz + z, .9, .04, .03, ripe ? 0xd8c27a : 0xa8c45a);
+          if (ripe) for (let j = 0; j < 3; j++) this.part('ball', cx - .3 + j * .3, .16, cz + z + .045, .04, .08, .04, 0xf2c230);
+        }
+      } else if (crop === 2) { // floarea-soarelui: tulpini cu frunze și capete mari galbene
+        for (const z of [-.3, 0, .3]) {
+          this.part('box', cx, .02, cz + z, .92, .26 * s, .06, 0x3f8a32);
+          for (let j = 0; j < 4; j++) {
+            const x = cx - .36 + j * .24;
+            if (ripe) {
+              this.part('cyl', x, .27, cz + z + .03, .15, .02, .15, 0xffcf1f);
+              this.part('ball', x, .28, cz + z + .03, .07, .02, .07, 0x5b3a1a);
+            } else this.part('ball', x, .02 + .26 * s, cz + z, .07, .06, .07, 0x6fae45);
+          }
+        }
+      } else { // rapiță: rânduri verzi, acoperite de flori galbene aprinse când e coaptă
+        for (const z of rows) {
+          this.part('box', cx, .02, cz + z, .96, .14 * s, .16, 0x5c9e3c);
+          if (ripe) this.part('box', cx, .16, cz + z, .97, .04, .17, 0xf7e11e);
+        }
+      }
+      return .2;
+    }
+    if (k === 'agro') {
+      // garaj de utilaje: hală de cărămidă cu două acoperișuri verzi arcuite, silozuri, coșuri,
+      // lăzi și cauciucuri; în față, pe platformă, stau parcate o combină, un buldozer și un tractor cu remorcă
+      const BRICK = 0xa65a3a, ROOF = 0x2e7d4f;
+      this.part('box', cx, 0, cz, .98, .016, .98, 0xc9bfae, r);
+      P('box', -.08, 0, -.27, .7, .22, .4, BRICK);
+      P('box', -.08, .22, -.27, .72, .015, .42, 0x8a4a30);
+      for (const z of [-.37, -.17]) {
+        P('arch', -.08, .22, z, .72, .3, .21, ROOF);
+        for (const x of [-.32, -.08, .16]) P('box', x, .33, z, .07, .035, .05, 0x9fd3f0);
+      }
+      // uși mari de lemn și ferestre arcuite
+      for (const x of [-.3, .1]) { P('box', x, 0, -.065, .17, .17, .012, 0x6d4c41); P('box', x, .085, -.058, .17, .008, .006, 0x4e342e); }
+      for (const x of [-.12, -.04]) P('box', x, .07, -.065, .05, .1, .01, 0x37474f);
+      // coșuri și rezervorul de apă de pe acoperiș
+      for (const x of [.12, .19]) P('cyl', x, .3, -.42, .035, .2, .035, 0x333333);
+      P('cyl', -.32, .37, -.42, .1, .09, .1, 0x5f6870);
+      P('cone', -.32, .46, -.42, .11, .04, .11, 0x4a5058);
+      // silozuri pe dreapta
+      for (const [x, z, s] of [[.38, -.34, 1], [.4, -.1, .8]]) {
+        for (const a of [-1, 1]) for (const b of [-1, 1]) P('box', x + a * .05 * s, 0, z + b * .05 * s, .015, .08, .015, 0x555555);
+        P('cyl', x, .08, z, .17 * s, .3 * s, .17 * s, 0xa9b1b7);
+        P('cyl', x, .08 + .1 * s, z, .175 * s, .012, .175 * s, 0x8a9399);
+        P('cone', x, .08 + .3 * s, z, .18 * s, .07 * s, .18 * s, 0x8a9399);
+      }
+      P('box', .26, .3, -.28, .2, .015, .015, 0x8a9399); // conducta dintre siloz și hală
+      // lăzi și cauciucuri în colț
+      for (const [x, z, s] of [[-.42, .4, .07], [-.35, .42, .06], [-.4, .33, .05]]) P('box', x, 0, z, s, s, s, 0x9c6b3e);
+      for (let j = 0; j < 3; j++) P('torus', -.22, j * .035, .44, .1, .1, .1, 0x222222);
+      // gard jos în față
+      P('box', .2, 0, .47, .5, .05, .012, 0x6b6f73);
+      // utilajele parcate (le pune syncParked), cu botul spre drum
+      const at = (dx, dz) => [cx + dx * cs + dz * sn, cz - dx * sn + dz * cs];
+      const yaw = r - Math.PI / 2;
+      for (const [type, dx, dz, scale] of [['combine', -.27, .16, .75], ['dozer', .03, .17, .8], ['tractor', .3, .14, .75]]) {
+        const [x, z] = at(dx, dz);
+        this.parkSpots.push({ type, x, z, yaw, scale });
+      }
+      return .6;
+    }
+    if (k === 'pharmacy') {
+      // farmacia REIVAN: clădire albă cu vitrine, acoperiș verde, cruce verde pe acoperiș și pe stâlp, firmă cu numele
+      const G = 0x1b8a3c, L = 0x2ecc40;
+      this.part('box', cx, 0, cz, .98, .014, .98, COL.paving, r);
+      P('shop', 0, 0, -.14, .72, .34, .5, 0xf7f9f7);
+      P('box', 0, .34, -.14, .76, .03, .54, G);
+      P('box', 0, .25, .115, .64, .09, .012, G); // fundalul firmei
+      P('box', 0, .19, .2, .32, .015, .16, L); // copertina de deasupra ușii
+      for (const q of [-1, 1]) P('cyl', q * .15, 0, .27, .01, .19, .01, COL.metal);
+      // crucea de pe acoperiș
+      P('box', 0, .37, -.14, .06, .2, .04, L);
+      P('box', 0, .44, -.14, .2, .06, .04, L);
+      // stâlp cu cruce verde lângă drum
+      P('cyl', .42, 0, .38, .012, .3, .012, COL.metal);
+      P('box', .42, .3, .38, .13, .04, .02, L);
+      P('box', .42, .255, .38, .04, .13, .02, L);
+      // bancă, ghivece cu flori și gard viu
+      P('box', -.3, .05, .34, .2, .02, .07, 0x8d5a3b);
+      for (const q of [-1, 1]) P('box', -.3 + q * .08, 0, .34, .02, .05, .06, 0x555555);
+      for (const q of [-1, 1]) { P('cyl', q * .26, 0, .17, .05, .06, .05, 0xb5653a); P('ball', q * .26, .05, .17, .06, .06, .06, pick(COL.flowers, v + q + 2)); }
+      P('box', -.47, 0, -.05, .03, .07, .7, COL.hedge);
+      // plăcuța cu „REIVAN” (o face syncSigns), puțin în fața fundalului verde
+      const fz = .123;
+      this.pharmacySigns.push({ x: cx + fz * sn, y: .295, z: cz + fz * cs, r, w: .6, h: .085 });
+      return .7;
     }
     if (k === 'gas') {
       // benzinărie: copertină pe stâlpi, pompe, magazin și stâlpul cu prețuri
@@ -2438,6 +2797,8 @@ export class CityView {
     p.commit();
     this.updatePlanes(dt);
     this.updateHelis(dt);
+    this.updateTractors(dt);
+    this.updateFlags();
     this.sky.update(dt, this.skyState);
     this.renderer.render(this.scene, this.camera);
   }

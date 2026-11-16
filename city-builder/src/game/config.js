@@ -34,23 +34,27 @@ export const TOOLS = [
   { id: 'park', name: 'Parc', icon: '🌳', cost: 150, upkeep: 2, radius: 4, mode: 'rect', help: 'Crește valoarea terenului din jur.' },
   { id: 'garden', name: 'Curte cu flori', icon: '🌷', cost: 40, upkeep: 1, radius: 3, mode: 'rect', help: 'Straturi de flori, gard viu și alei. Oamenii se plimbă aici, iar terenul din jur se scumpește.' },
   { id: 'farm', name: 'Legume', icon: '🥕', cost: 30, mode: 'rect', help: 'Plantează legume. Cresc singure, iar când sunt coapte se culeg și se vând. Lângă apă cresc mai repede.' },
+  { id: 'field', name: 'Teren arabil', icon: '🌾', cost: 15, mode: 'rect', help: 'Ogor mare cu grâu, porumb, floarea-soarelui sau rapiță. Tractorul ară, apoi cultura crește, se recoltează și se vinde. Trage un dreptunghi mare: pe fiecare ogor lucrează un tractor.' },
   { id: 'ranch', name: 'Fermă', icon: '🐄', cost: 600, mode: 'tap', help: 'Fermă cu animale sau păsări. Apasă pe ea cu 🔍 Info ca să alegi ce crești: fiecare aduce alți bani.' },
   { id: 'station', name: 'Gară', icon: '🚉', cost: 1500, upkeep: 30, radius: 10, mode: 'tap', help: 'Pune-o lângă șine: vin mai multe trenuri, iar terenul din jur se scumpește.' },
   { id: 'fun', name: 'Parc de distracții', icon: '🎡', cost: 1200, upkeep: 20, radius: 6, sells: 60, mode: 'rect', help: 'Roată mare, carusel, montagne russe și chioșcuri cu baloane. Vinde bilete: +60 $ pe lună fiecare pătrățel, iar oamenii din jur sunt mai fericiți.' },
   { id: 'beach', name: 'Plajă', icon: '🏖️', cost: 200, upkeep: 2, radius: 5, sells: 25, biz: true, mode: 'rect', help: 'Doar pe malul apei: nisip, umbrele, șezlonguri și oameni care fac plajă. Închiriază umbrele: +25 $ pe lună fiecare pătrățel, iar terenul din jur se scumpește.' },
   { id: 'heli', name: 'Heliport', icon: '🚁', cost: 1500, upkeep: 15, radius: 7, sells: 60, biz: true, mode: 'tap', help: 'Pistă de elicopter cu cercul galben și litera H. Elicopterul pornește elicea, decolează, face un tur deasupra orașului și aterizează la loc. Aduce +60 $ pe lună din zboruri.' },
   { id: 'cafe', name: 'Cafenea', icon: '☕', cost: 500, upkeep: 5, radius: 4, sells: 40, biz: true, mode: 'tap', help: 'Cafenea cu terasă și umbrele: terenul din jur se scumpește. Aduce +40 $ pe lună.' },
+  { id: 'agro', name: 'Garaj de utilaje', icon: '🛠️', cost: 2500, upkeep: 20, radius: 10, mode: 'tap', help: 'Hală cu combină, buldozer, tractor cu remorcă și silozuri. Terenul arabil din jur (10 pătrățele) crește mai repede și dă recoltă dublă.' },
+  { id: 'pharmacy', name: 'Farmacia REIVAN', icon: '💊', cost: 700, upkeep: 8, radius: 6, sells: 50, biz: true, mode: 'tap', help: 'Farmacia REIVAN, cu cruce verde și firmă luminoasă. Oamenii din jur sunt mai sănătoși și mai mulțumiți, iar terenul se scumpește. Aduce +50 $ pe lună.' },
   { id: 'gas', name: 'Benzinărie', icon: '⛽', cost: 900, upkeep: 10, sells: 70, biz: true, mode: 'tap', help: 'Benzinărie cu pompe, copertină și magazin. Aduce +70 $ pe lună. Pune-o lângă drum.' },
   { id: 'parking', name: 'Parcare', icon: '🅿️', cost: 120, upkeep: 2, radius: 3, sells: 12, biz: true, mode: 'rect', help: 'Parcare cu mașini: +12 $ pe lună pentru fiecare pătrățel. Magazinele din jur au mai mulți clienți.' },
   { id: 'airport', name: 'Aeroport', icon: '✈️', cost: 600, upkeep: 10, radius: 12, sells: 45, biz: true, mode: 'rect', help: 'Trage o suprafață lungă (de exemplu 2 × 5): pistă, turn de control, terminal și hangar. Avioanele decolează! +45 $ pe lună fiecare pătrățel.' },
   { id: 'police', name: 'Poliție', icon: '👮', cost: 800, upkeep: 40, radius: 9, mode: 'tap', help: 'Siguranță: oamenii sunt mai mulțumiți.' },
   { id: 'fire', name: 'Pompieri', icon: '🚒', cost: 800, upkeep: 40, radius: 9, mode: 'tap', help: 'Fără pompieri pot izbucni incendii.' },
   { id: 'school', name: 'Școală', icon: '🏫', cost: 1000, upkeep: 50, radius: 9, mode: 'tap', help: 'Educația crește valoarea terenului.' },
+  { id: 'flag', name: 'Steag', icon: '🚩', cost: 50, mode: 'tap', help: 'Alege steagul de jos, apoi apasă pe o clădire: steagul flutură pe un catarg, pe acoperiș. Cu 🔍 Info îl poți schimba sau scoate.' },
   { id: 'bulldoze', name: 'Demolează', icon: '🚜', cost: 5, mode: 'rect', help: 'Trage peste ce vrei să dărâmi (sau să tai pădurea).' },
 ];
 export const TOOL = Object.fromEntries(TOOLS.map(t => [t.id, t]));
 
-export const KINDS = [null, 'road', 'R', 'C', 'I', 'power', 'water', 'park', 'police', 'fire', 'school', 'garden', 'farm', 'rail', 'crossing', 'station', 'H', 'wind', 'solar', 'ranch', 'fun', 'bridge', 'cafe', 'gas', 'parking', 'airport', 'beach', 'heli'];
+export const KINDS = [null, 'road', 'R', 'C', 'I', 'power', 'water', 'park', 'police', 'fire', 'school', 'garden', 'farm', 'rail', 'crossing', 'station', 'H', 'wind', 'solar', 'ranch', 'fun', 'bridge', 'cafe', 'gas', 'parking', 'airport', 'beach', 'heli', 'pharmacy', 'field', 'agro'];
 export const KIND_NAME = {
   road: 'Drum', R: 'Zonă rezidențială', C: 'Zonă comercială', I: 'Zonă industrială', power: 'Centrală electrică',
   water: 'Turn de apă', park: 'Parc', police: 'Secție de poliție', fire: 'Stație de pompieri', school: 'Școală',
@@ -58,11 +62,16 @@ export const KIND_NAME = {
   fun: 'Parc de distracții', wind: 'Eoliană', solar: 'Parc de panouri solare', ranch: 'Fermă de animale',
   H: 'Zonă de blocuri', rail: 'Cale ferată', crossing: 'Trecere la nivel cu calea ferată', station: 'Gară', bridge: 'Pod',
   cafe: 'Cafenea', gas: 'Benzinărie', parking: 'Parcare', airport: 'Aeroport', beach: 'Plajă', heli: 'Heliport',
+  pharmacy: 'Farmacia REIVAN', field: 'Teren arabil', agro: 'Garaj de utilaje agricole',
 };
 // legumele: tipul depinde de pătrățel; prețul e pentru un pătrățel cules
 export const CROPS = ['Varză', 'Morcovi', 'Roșii', 'Dovleci', 'Porumb', 'Vinete', 'Grâu'];
 export const CROP_STAGES = ['Semințe puse', 'Răsaduri', 'Cresc', 'Gata de cules'];
 export const HARVEST_PRICE = 12;
+// terenul arabil: cultura depinde de pătrățel; prețul e pentru un pătrățel recoltat
+export const FIELD_CROPS = ['Grâu', 'Porumb', 'Floarea-soarelui', 'Rapiță'];
+export const FIELD_STAGES = ['Arat', 'Semănat', 'Crește', 'Gata de recoltat (vine combina)', 'Recoltat: miriște și baloți de paie'];
+export const FIELD_PRICE = 10;
 // ce poți crește la fermă: prețul se plătește când schimbi, venitul vine lunar
 export const ANIMALS = [
   { id: 'cow', name: 'Vaci', icon: '🐄', product: 'lapte', price: 300, income: 80, count: 3 },

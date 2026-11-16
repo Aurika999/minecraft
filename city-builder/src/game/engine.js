@@ -2,6 +2,7 @@
 import { N, TOOL, DAY_SECONDS, ANIMALS } from './config.js';
 import { City, ZONES, WATER } from './city.js';
 import { CityView } from './view.js';
+import { FLAGS } from './flags.js';
 import { Avatars, LOOKS, SHIRTS } from './avatars.js';
 import * as M from './missions.js';
 import { sfx, unlock, setRain } from './sound.js';
@@ -104,6 +105,21 @@ export class Engine {
   rotate(d) { this.view.rotate(d); }
   zoom(f) { this.view.zoomBy(f); }
   select(t) { this.selected = t; this.view.setSelected(t); this.emit(); }
+
+  // ce steag se pune cu unealta 🚩
+  setFlagChoice(j) { this.flagChoice = j; this.emit(); }
+
+  // schimbă sau scoate (j = -1) steagul de pe clădirea selectată
+  setTileFlag(x, z, j) {
+    if (this.readOnly) return;
+    const r = this.city.setFlag(this.city.idx(x, z), j);
+    if (r.error) { this.msg(r.error); return; }
+    this.view.rebuild(this.city);
+    this.builtVersion = this.city.version;
+    this.msg(j < 0 ? '🚩 Am scos steagul.' : `🚩 Acum flutură steagul: ${FLAGS[j].name}.`);
+    this.save();
+    this.emit();
+  }
 
   setRanch(x, z, j) {
     if (this.readOnly) return;
@@ -361,8 +377,9 @@ export class Engine {
       this.msg(`🔨 Trimis la ${this.visiting?.name || 'gazdă'}: ${TOOL[this.tool].icon} ${TOOL[this.tool].name}…`);
       return;
     }
-    const r = this.city.apply(this.tool, this.tilesFor(a, b));
+    const r = this.city.apply(this.tool, this.tilesFor(a, b), { flag: this.flagChoice || 0 });
     if (r.error) { this.msg(r.error); return; }
+    if (this.tool === 'flag') this.msg(`🚩 Ai pus steagul: ${FLAGS[this.flagChoice || 0].name}.`);
     if (this.tool === 'bulldoze') sfx.demolish(); else sfx.build();
     this.quests();
     this.view.rebuild(this.city);
@@ -700,7 +717,7 @@ export class Engine {
     this.messages = this.messages.filter(m => now - m.t < 7000);
     this.onUpdate({
       money: c.money, pop: s.pop, jobs: s.jobsC + s.jobsI, happiness: s.happiness, date: c.dateText(),
-      demand: { ...c.demand }, tax: c.tax, lastMonth: c.lastMonth, speed: this.speed, tool: this.tool,
+      demand: { ...c.demand }, tax: c.tax, lastMonth: c.lastMonth, speed: this.speed, tool: this.tool, flagChoice: this.flagChoice || 0,
       previewCost: this.previewCost || 0, welcome: this.welcome, messages: [...this.messages],
       readOnly: !!this.readOnly, visiting: this.visiting || null, homeMoney: this.homeCity().money,
       canBuild: !!this.canBuild, walking: !!this.walk, celebrate: this.celebrate, stars: this.homeCity().quest.stars,

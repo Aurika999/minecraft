@@ -3,6 +3,7 @@ import { newQuest } from './missions.js';
 import {
   N, START_MONEY, DAYS_PER_MONTH, ROAD_UPKEEP, FOREST_CLEAR, BRIDGE_COST, BRIDGE_UPKEEP, RESIDENTS, RESIDENTS_H, JOBS_C, JOBS_I,
   TOOL, KINDS, KIND_NAME, MONTHS, ANIMALS, CROPS, CROP_STAGES, HARVEST_PRICE,
+  FIELD_CROPS, FIELD_STAGES, FIELD_PRICE,
 } from './config.js';
 
 export const GRASS = 0, WATER = 1, FOREST = 2;
@@ -10,7 +11,7 @@ export const ZONES = new Set(['R', 'H', 'C', 'I']);
 // blocurile folosesc aceeași cerere ca locuințele
 const demandKey = k => k === 'H' ? 'R' : k;
 // locuri de muncă în servicii și afaceri (pe pătrățel): ajută și ele oamenii să se mute în oraș
-const SERVICE_JOBS = { police: 15, fire: 15, school: 20, station: 20, power: 20, water: 5, fun: 12, ranch: 4, cafe: 10, gas: 8, parking: 2, airport: 15, beach: 3, heli: 6 };
+const SERVICE_JOBS = { police: 15, fire: 15, school: 20, station: 20, power: 20, water: 5, fun: 12, ranch: 4, cafe: 10, gas: 8, parking: 2, airport: 15, beach: 3, heli: 6, pharmacy: 6, agro: 10 };
 // cât de mică poate fi cererea ca pe o zonă goală de case sau blocuri să înceapă totuși construcția
 const START_DEMAND = -.35;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -53,6 +54,7 @@ export class City {
     this.kind = new Array(n).fill(null);
     this.level = new Uint8Array(n);
     this.variant = new Uint8Array(n);
+    this.flag = new Uint8Array(n); // steagul de pe clădire: 0 = fără, altfel indicele din FLAGS + 1
     this.money = START_MONEY;
     this.day = 0;
     this.tax = 9;
@@ -69,7 +71,7 @@ export class City {
     this.nearWater = new Uint8Array(n);
     this.value = new Float32Array(n);
     this.pollution = new Float32Array(n);
-    this.cover = { police: new Float32Array(n), fire: new Float32Array(n), school: new Float32Array(n), park: new Float32Array(n), garden: new Float32Array(n), station: new Float32Array(n), fun: new Float32Array(n), cafe: new Float32Array(n), parking: new Float32Array(n), airport: new Float32Array(n), beach: new Float32Array(n), heli: new Float32Array(n) };
+    this.cover = { police: new Float32Array(n), fire: new Float32Array(n), school: new Float32Array(n), park: new Float32Array(n), garden: new Float32Array(n), station: new Float32Array(n), fun: new Float32Array(n), cafe: new Float32Array(n), parking: new Float32Array(n), airport: new Float32Array(n), beach: new Float32Array(n), heli: new Float32Array(n), pharmacy: new Float32Array(n), agro: new Float32Array(n) };
   }
 
   static create(seed = (Math.random() * 1e9) | 0) {
@@ -166,7 +168,7 @@ export class City {
       else if (k === 'I' && level[i]) radiate(x, z, 5, (j, f) => { pollution[j] = Math.min(1, pollution[j] + .12 * level[i] * f); });
     }
     for (let i = 0; i < N * N; i++) {
-      value[i] = clamp(.42 + .22 * cover.park[i] + .14 * cover.garden[i] + .1 * cover.station[i] + .12 * cover.fun[i] + .12 * cover.police[i] + .1 * cover.school[i] + .06 * cover.fire[i] + .1 * cover.cafe[i] + .04 * cover.parking[i] + .08 * cover.airport[i] + .1 * cover.beach[i] + .06 * cover.heli[i]
+      value[i] = clamp(.42 + .22 * cover.park[i] + .14 * cover.garden[i] + .1 * cover.station[i] + .12 * cover.fun[i] + .12 * cover.police[i] + .1 * cover.school[i] + .06 * cover.fire[i] + .1 * cover.cafe[i] + .04 * cover.parking[i] + .08 * cover.airport[i] + .1 * cover.beach[i] + .06 * cover.heli[i] + .1 * cover.pharmacy[i]
         + .08 * this.nearWater[i] - .55 * pollution[i], 0, 1);
     }
   }
@@ -206,6 +208,21 @@ export class City {
           this.harvest += HARVEST_PRICE;
           changed = true;
         }
+        continue;
+      }
+      if (k === 'field') {
+        // ogorul: arat → semănat → crește → copt → recoltat (baloți) → arat din nou.
+        // Lângă un garaj de utilaje totul merge mai repede, iar recolta e dublă.
+        const agro = this.cover.agro[i] > 0, l = this.level[i];
+        if (l < 3) {
+          if (Math.random() < .05 + (this.nearWater[i] || this.watered[i] ? .03 : 0) + (agro ? .04 : 0)) { this.level[i]++; changed = true; }
+        } else if (l === 3) {
+          if (Math.random() < (agro ? .1 : .06)) {
+            this.level[i] = 4;
+            this.harvest += FIELD_PRICE * (agro ? 2 : 1);
+            changed = true;
+          }
+        } else if (Math.random() < .08) { this.level[i] = 0; changed = true; }
         continue;
       }
       if (!ZONES.has(k)) continue;
@@ -272,9 +289,25 @@ export class City {
     return { cost: a.price };
   }
 
+  // e o clădire pe care se poate pune un steag?
+  hasBuilding(i) {
+    const k = this.kind[i];
+    if (!k || ['road', 'rail', 'crossing', 'bridge', 'farm', 'field', 'park', 'garden', 'parking', 'beach', 'solar'].includes(k)) return false;
+    return !ZONES.has(k) || this.level[i] > 0;
+  }
+
+  // pune (j = indicele din FLAGS), schimbă sau scoate (j = -1) steagul de pe o clădire; schimbarea e gratuită
+  setFlag(i, j) {
+    if (!this.hasBuilding(i)) return { error: 'Steagul se pune doar pe o clădire.' };
+    this.flag[i] = j < 0 ? 0 : j + 1;
+    this.version++;
+    return { cost: 0 };
+  }
+
   // de ce nu se poate folosi unealta aici (sau null dacă se poate)
   check(tool, i) {
     const k = this.kind[i], emptyZone = ZONES.has(k) && this.level[i] === 0, free = !k || emptyZone;
+    if (tool === 'flag') return this.hasBuilding(i) ? null : 'Steagul se pune doar pe o clădire (casă, bloc, magazin, școală…).';
     if (tool === 'bulldoze') return k || this.terrain[i] === FOREST ? null : 'Nu e nimic de demolat aici.';
     const linear = tool === 'road' || tool === 'rail';
     if (linear && (this.ramp(i % N, (i / N) | 0, 'road') || this.ramp(i % N, (i / N) | 0, 'rail'))) return 'Aici e rampa unui pod: nu se poate încrucișa.';
@@ -327,7 +360,17 @@ export class City {
     return { items, cost: items.reduce((s, it) => s + (it.cost || 0), 0), error: wrong?.reason };
   }
 
-  apply(tool, tiles) {
+  apply(tool, tiles, opts = {}) {
+    if (tool === 'flag') {
+      const ok = tiles.map(([x, z]) => this.idx(x, z)).filter(i => this.hasBuilding(i));
+      if (!ok.length) return { error: this.check('flag', this.idx(...tiles[0])) };
+      const cost = ok.filter(i => !this.flag[i]).length * TOOL.flag.cost;
+      if (cost > this.money) return { error: `Nu ai destui bani: steagul costă ${cost} $.` };
+      this.money -= cost;
+      for (const i of ok) this.flag[i] = (opts.flag ?? 0) + 1;
+      this.version++;
+      return { cost, count: ok.length };
+    }
     if (TOOL[tool].bridge) {
       const p = this.planBridge(tool, tiles);
       if (p.error) return { error: p.error };
@@ -361,6 +404,7 @@ export class City {
       this.kind[i] = tool === 'bulldoze' ? (k === 'bridge' ? bridgeOf(this.level[i]).under : null)
         : (tool === 'road' && k === 'rail') || (tool === 'rail' && k === 'road') ? 'crossing' : tool;
       this.level[i] = 0;
+      this.flag[i] = 0; // clădirea nouă (sau locul demolat) pornește fără steag
     }
     this.version++;
     this.recompute();
@@ -387,9 +431,14 @@ export class City {
         + (br.under === 'road' ? ' peste drum' : br.under === 'rail' ? ' peste calea ferată' : this.terrain[i] === WATER ? ' peste apă' : '');
     }
     if (k === 'ranch') info.ranch = this.level[i] < ANIMALS.length ? this.level[i] : 0;
+    if (this.hasBuilding(i)) info.flag = this.flag[i] - 1; // -1 = fără steag
     if (k === 'farm') {
       info.crop = CROPS[this.variant[i] % CROPS.length];
       info.stage = CROP_STAGES[l];
+    }
+    if (k === 'field') {
+      info.crop = FIELD_CROPS[this.variant[i] % FIELD_CROPS.length];
+      info.stage = FIELD_STAGES[l];
     }
     if (ZONES.has(k)) {
       info.level = l;
@@ -416,6 +465,7 @@ export class City {
       v: 1, seed: this.seed, money: this.money, day: this.day, tax: this.tax, lastMonth: this.lastMonth, harvest: this.harvest,
       terrain: Array.from(this.terrain), kind: this.kind.map(k => KINDS.indexOf(k)),
       level: Array.from(this.level), variant: Array.from(this.variant), quest: this.quest,
+      flags: this.flag.reduce((a, f, i) => (f && a.push(i, f), a), []),
     };
   }
 
@@ -427,6 +477,7 @@ export class City {
     c.kind = o.kind.map(k => KINDS[k] ?? null);
     c.level.set(o.level);
     c.variant.set(o.variant);
+    if (Array.isArray(o.flags)) for (let k = 0; k + 1 < o.flags.length; k += 2) if (o.flags[k] >= 0 && o.flags[k] < N * N) c.flag[o.flags[k]] = o.flags[k + 1];
     if (o.quest && Array.isArray(o.quest.done)) c.quest = { ...newQuest(), ...o.quest, done: [...o.quest.done] };
     c.prepare();
     c.recompute();

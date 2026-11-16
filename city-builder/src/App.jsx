@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Engine } from './game/engine.js';
 import { TOOLS, TOOL, ANIMALS } from './game/config.js';
+import { FLAGS, flagImage } from './game/flags.js';
 import { useInstall, isIOS, isSecure } from './install.js';
 import { useSocial, SocialButton, SocialPanel, VisitBanner } from './Social.jsx';
 import { useRoom, PlayBar } from './Together.jsx';
@@ -104,7 +105,7 @@ function Messages({ list }) {
 function Info({ info, g, money, readOnly, onClose }) {
   const yes = (v, label) => <li className={v ? 'ok' : 'bad'}>{v ? '✔' : '✖'} {label}</li>;
   return (
-    <aside className={'card info' + (info.ranch != null ? ' wide' : '')}>
+    <aside className={'card info' + (info.ranch != null || (info.flag != null && !readOnly) ? ' wide' : '')}>
       <div className="card-head">
         <h3>{info.title}</h3>
         <button className="icon small" onClick={onClose} aria-label="Închide">✕</button>
@@ -115,6 +116,17 @@ function Info({ info, g, money, readOnly, onClose }) {
       {info.ranch != null && (readOnly
         ? <p>{ANIMALS[info.ranch].icon} Aici se cresc <b>{ANIMALS[info.ranch].name.toLowerCase()}</b> ({ANIMALS[info.ranch].product}).</p>
         : <RanchPicker info={info} g={g} money={money} />)}
+      {info.flag != null && (readOnly
+        ? info.flag >= 0 && <p className="flag-now"><img src={flagImage(info.flag)} alt="" /> Steag: <b>{FLAGS[info.flag].name}</b></p>
+        : <div className="flag-box">
+            <p className="flag-now">
+              {info.flag >= 0
+                ? <><img src={flagImage(info.flag)} alt="" /> Steag: <b>{FLAGS[info.flag].name}</b>
+                    <button className="mini-btn" onClick={() => g.setTileFlag(info.x, info.z, -1)}>Scoate</button></>
+                : <>🚩 Fără steag. Alege unul (gratuit aici):</>}
+            </p>
+            <FlagPicker cur={info.flag} onPick={j => g.setTileFlag(info.x, info.z, j)} />
+          </div>)}
       {!info.crop && info.ranch == null && <ul className="checks">
         {yes(info.road, 'Drum aproape')}
         {yes(info.powered, 'Curent electric')}
@@ -125,6 +137,20 @@ function Info({ info, g, money, readOnly, onClose }) {
       {info.problem && <p className="problem">⚠ {info.problem}</p>}
       {info.note && <p className="note">{info.note}</p>}
     </aside>
+  );
+}
+
+// grila cu toate steagurile; cur = indicele steagului ales acum
+function FlagPicker({ cur, onPick }) {
+  return (
+    <div className="flag-grid">
+      {FLAGS.map((f, j) => (
+        <button key={f.id} className={'flag-opt' + (j === cur ? ' on' : '')} onClick={() => onPick(j)} title={f.name}>
+          <img src={flagImage(j)} alt="" />
+          <span>{f.name}</span>
+        </button>
+      ))}
+    </div>
   );
 }
 
@@ -191,6 +217,12 @@ function Toolbar({ ui, g, open, setOpen }) {
   if (!open) {
     return (
       <footer className="toolbar">
+        {ui.tool === 'flag' && (
+          <div className="flag-pick">
+            <b>Alege steagul, apoi apasă pe o clădire:</b>
+            <FlagPicker cur={ui.flagChoice} onPick={j => g.setFlagChoice(j)} />
+          </div>
+        )}
         {building ? (
           <div className="mini-bar">
             <span className="mini-tool">{t.icon} <b>{t.name}</b></span>
@@ -253,9 +285,9 @@ function Budget({ ui, g, onClose }) {
             <tr><td>Taxe încasate</td><td className="pos">+{fmt(m.income)} $</td></tr>
             {m.energy > 0 && <tr><td>Energie vândută</td><td className="pos">+{fmt(m.energy)} $</td></tr>}
             {m.tickets > 0 && <tr><td>Bilete la parcul de distracții</td><td className="pos">+{fmt(m.tickets)} $</td></tr>}
-            {m.business > 0 && <tr><td>Afaceri (cafenele, benzinării, parcări, aeroport, plaje, heliporturi)</td><td className="pos">+{fmt(m.business)} $</td></tr>}
+            {m.business > 0 && <tr><td>Afaceri (cafenele, benzinării, parcări, aeroport, plaje, heliporturi, farmacii)</td><td className="pos">+{fmt(m.business)} $</td></tr>}
             {m.ranch > 0 && <tr><td>Produse de la ferme</td><td className="pos">+{fmt(m.ranch)} $</td></tr>}
-            {m.farm > 0 && <tr><td>Legume vândute</td><td className="pos">+{fmt(m.farm)} $</td></tr>}
+            {m.farm > 0 && <tr><td>Legume și cereale vândute</td><td className="pos">+{fmt(m.farm)} $</td></tr>}
             <tr><td>Întreținere drumuri</td><td className="neg">−{fmt(m.roads)} $</td></tr>
             <tr><td>Servicii (curent, apă, poliție…)</td><td className="neg">−{fmt(m.services)} $</td></tr>
             <tr className="total"><td>Luna trecută</td><td className={m.net >= 0 ? 'pos' : 'neg'}>{m.net >= 0 ? '+' : '−'}{fmt(Math.abs(m.net))} $</td></tr>
