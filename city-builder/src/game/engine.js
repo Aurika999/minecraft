@@ -14,7 +14,7 @@ const DAY_REAL = 240; // o zi întreagă (zi + noapte) durează 4 minute
 
 const LOOK_KEY = 'orasul-meu-personaj';
 // clădirile prin care personajul nu poate trece (zonele construite se ocolesc și ele)
-const SOLID = new Set(['power', 'water', 'police', 'fire', 'school', 'station']);
+const SOLID = new Set(['power', 'water', 'police', 'fire', 'school', 'station', 'hall', 'hospital']);
 const WALK_SPEED = 2.4;
 
 const SAVE_KEY = 'orasul-meu-v1';

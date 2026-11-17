@@ -762,7 +762,7 @@ export class CityView {
       else if (k === 'beach') gc = COL.sand;
       else if (k === 'heli') gc = COL.paving;
       else if (k === 'airport') gc = COL.apron;
-      else if (k === 'cafe' || k === 'gas' || k === 'pharmacy' || k === 'agro' || k === 'police' || k === 'fire' || k === 'school') gc = COL.paving;
+      else if (k === 'cafe' || k === 'gas' || k === 'pharmacy' || k === 'agro' || k === 'hall' || k === 'hospital' || k === 'police' || k === 'fire' || k === 'school') gc = COL.paving;
       else if (t === FOREST) gc = COL.forest;
       // plajă: iarba liberă de lângă apă devine nisip, uneori cu un palmier
       const shore = !k && t === GRASS && [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dz]) =>
@@ -1368,26 +1368,38 @@ export class CityView {
   }
 
   // firmele cu numele farmaciei „REIVAN”: o textură desenată o singură dată, câte o plăcuță pe fiecare farmacie
-  syncSigns() {
-    if (!this.reivanTex) {
-      const c = document.createElement('canvas'); c.width = 512; c.height = 80;
-      const x = c.getContext('2d');
-      x.fillStyle = '#1b8a3c'; x.fillRect(0, 0, 512, 80);
-      x.fillStyle = '#ffffff'; x.fillRect(4, 4, 504, 4); x.fillRect(4, 72, 504, 4);
-      // crucea verde pe fond alb, în stânga
-      x.fillRect(14, 12, 56, 56);
-      x.fillStyle = '#2ecc40'; x.fillRect(35, 18, 14, 44); x.fillRect(20, 33, 44, 14);
-      x.fillStyle = '#ffffff'; x.font = 'bold 58px "Segoe UI", Arial, sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
-      x.fillText('REIVAN', 290, 43);
-      this.reivanTex = new THREE.CanvasTexture(c);
-      this.reivanTex.colorSpace = THREE.SRGBColorSpace;
-      this.reivanTex.anisotropy = 4;
-      this.reivanMat = new THREE.MeshBasicMaterial({ map: this.reivanTex });
-      this.reivanGeo = new THREE.PlaneGeometry(1, 1);
+  // (și firmele „PRIMĂRIA” și „SPITAL”, la fel)
+  signMaterial(t) {
+    this.signMats ||= {};
+    if (this.signMats[t]) return this.signMats[t];
+    const c = document.createElement('canvas'); c.width = 512; c.height = 80;
+    const x = c.getContext('2d');
+    const [bg, text, cross] = {
+      reivan: ['#1b8a3c', 'REIVAN', '#2ecc40'],
+      hospital: ['#c62828', 'SPITAL', '#e53935'],
+      hall: ['#1f3c88', 'PRIMĂRIA', null],
+    }[t];
+    x.fillStyle = bg; x.fillRect(0, 0, 512, 80);
+    x.fillStyle = t === 'hall' ? '#f2c94c' : '#ffffff'; x.fillRect(4, 4, 504, 4); x.fillRect(4, 72, 504, 4);
+    if (cross) {
+      // crucea pe fond alb, în stânga
+      x.fillStyle = '#ffffff'; x.fillRect(14, 12, 56, 56);
+      x.fillStyle = cross; x.fillRect(35, 18, 14, 44); x.fillRect(20, 33, 44, 14);
     }
+    x.fillStyle = t === 'hall' ? '#f2c94c' : '#ffffff';
+    x.font = `bold ${t === 'hall' ? 52 : 58}px "Segoe UI", Arial, sans-serif`; x.textAlign = 'center'; x.textBaseline = 'middle';
+    x.fillText(text, cross ? 290 : 256, 43);
+    const tex = new THREE.CanvasTexture(c);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.anisotropy = 4;
+    return (this.signMats[t] = new THREE.MeshBasicMaterial({ map: tex }));
+  }
+
+  syncSigns() {
+    this.reivanGeo ||= new THREE.PlaneGeometry(1, 1);
     for (const m of this.signMeshes || []) this.scene.remove(m);
     this.signMeshes = this.pharmacySigns.map(s => {
-      const m = new THREE.Mesh(this.reivanGeo, this.reivanMat);
+      const m = new THREE.Mesh(this.reivanGeo, this.signMaterial(s.t || 'reivan'));
       m.position.set(s.x, s.y, s.z);
       m.rotation.y = s.r;
       m.scale.set(s.w, s.h, 1);
@@ -2122,6 +2134,94 @@ export class CityView {
         this.parkSpots.push({ type, x, z, yaw, scale });
       }
       return .6;
+    }
+    if (k === 'hall') {
+      // primăria: clădire crem cu ferestre, portic cu patru coloane albe și fronton, cupolă verde cu felinar auriu,
+      // trepte late, firma „PRIMĂRIA”, steaguri, fântână și straturi de flori în față
+      const CREAM = 0xf1e3c6, WHITE = 0xfafafa, DOME = 0x4f9a83, GOLD = 0xf2c230;
+      this.part('box', cx, 0, cz, .98, .014, .98, COL.paving, r);
+      P('box', 0, 0, -.14, .86, .04, .6, 0xd9d2c5); // soclul
+      P('house', 0, .04, -.18, .8, .36, .46, CREAM);
+      P('box', 0, .4, -.18, .84, .03, .5, WHITE); // cornișa
+      for (const q of [-1, 1]) P('box', q * .41, .04, -.18, .03, .36, .47, WHITE); // colțurile
+      P('box', 0, .04, .052, .12, .17, .012, 0x6d4c41); // ușa
+      P('box', 0, .21, .052, .14, .015, .016, WHITE);
+      // porticul: coloane, grinda cu firma, frontonul triunghiular
+      for (const x of [-.21, -.07, .07, .21]) {
+        P('cyl', x, .04, .13, .04, .29, .04, WHITE);
+        P('box', x, .04, .13, .055, .02, .055, WHITE);
+        P('box', x, .31, .13, .055, .02, .055, WHITE);
+      }
+      P('box', 0, .33, .1, .56, .07, .18, WHITE);
+      P('gable', 0, .4, .1, .58, .12, .19, WHITE);
+      P('gable', 0, .41, .103, .46, .08, .19, 0xeadcc0);
+      // treptele din față
+      P('box', 0, 0, .22, .5, .025, .08, 0xe4ded3);
+      P('box', 0, 0, .25, .54, .012, .1, 0xd9d2c5);
+      // cupola cu tambur, ceas și felinar
+      P('cyl', 0, .43, -.2, .26, .1, .26, CREAM);
+      P('cyl', 0, .525, -.2, .28, .015, .28, WHITE);
+      P('ball', 0, .44, -.2, .25, .26, .25, DOME);
+      P('cyl', 0, .69, -.2, .04, .05, .04, WHITE);
+      P('ball', 0, .73, -.2, .035, .035, .035, GOLD);
+      P('ball', 0, .45, -.067, .07, .07, .012, WHITE); // cadranul ceasului
+      P('box', 0, .47, -.06, .006, .03, .004, 0x222222);
+      P('box', .01, .46, -.06, .022, .006, .004, 0x222222);
+      // steaguri și fântână
+      this.flag(P, -.42, .4);
+      this.flag(P, .36, .4);
+      P('cyl', .28, 0, .32, .14, .04, .14, 0xcfd4d9);
+      P('cyl', .28, .005, .32, .12, .04, .12, 0x4fc3f7);
+      P('cyl', .28, .04, .32, .02, .07, .02, 0xcfd4d9);
+      P('ball', .28, .1, .32, .04, .03, .04, 0x9fe0ff);
+      // straturi de flori și tufe
+      for (const q of [-1, 1]) {
+        P('box', q * .36, 0, .14, .18, .03, .12, COL.hedge);
+        for (let j = 0; j < 3; j++) P('flower', q * .36 - .06 + j * .06, .03, .14, .04, .04, .04, pick(COL.flowers, v + j + q));
+      }
+      P('box', -.26, .05, .36, .16, .02, .06, 0x8d5a3b);
+      // firma „PRIMĂRIA” pe grinda porticului
+      const fz = .192;
+      this.pharmacySigns.push({ t: 'hall', x: cx + fz * sn, y: .365, z: cz + fz * cs, r, w: .4, h: .055 });
+      return .75;
+    }
+    if (k === 'hospital') {
+      // spitalul: clădire mare albă cu dungă roșie, intrare la urgențe cu copertină roșie,
+      // pistă de elicopter pe acoperiș, cruce roșie, firma „SPITAL”, ambulanță și bănci cu copaci
+      const WHITE = 0xf4f6f8, RED = 0xd32f2f;
+      this.part('box', cx, 0, cz, .98, .014, .98, COL.paving, r);
+      P('office', -.05, 0, -.2, .82, .62, .46, WHITE);
+      P('box', -.05, .62, -.2, .84, .03, .48, 0xdfe4e8);
+      P('box', -.05, .4, -.2, .835, .03, .475, RED); // dunga roșie
+      // aripa joasă din dreapta
+      P('office', .33, 0, .05, .26, .28, .3, 0xe9eef2);
+      P('box', .33, .28, .05, .28, .02, .32, 0xdfe4e8);
+      // intrarea de urgențe: uși de sticlă și copertină roșie pe stâlpi
+      P('box', -.15, 0, .032, .2, .15, .012, 0x7fb8d8);
+      P('box', -.15, .17, .12, .36, .02, .2, RED);
+      for (const q of [-1, 1]) P('cyl', -.15 + q * .16, 0, .2, .01, .17, .01, COL.metal);
+      // pista de elicopter de pe acoperiș, cu H alb și cerc
+      P('cyl', -.05, .65, -.2, .36, .012, .36, 0x37474f);
+      P('torus', -.05, .655, -.2, .38, .02, .38, 0xffd600);
+      P('box', -.05, .663, -.2, .1, .006, .03, 0xffffff);
+      for (const q of [-1, 1]) P('box', -.05 + q * .05, .663, -.2, .025, .006, .16, 0xffffff);
+      // cruce roșie mare pe peretele lateral
+      P('box', -.465, .48, -.2, .01, .14, .05, RED);
+      P('box', -.465, .48 + .045, -.2, .01, .05, .14, RED);
+      // ambulanța: dubă albă cu dungă roșie și girofar albastru
+      P('box', .27, 0, .34, .13, .03, .24, 0x222222);
+      P('box', .27, .02, .32, .15, .14, .22, 0xffffff);
+      P('box', .27, .02, .45, .14, .09, .07, 0xffffff);
+      P('box', .27, .07, .48, .12, .04, .012, 0x2b3a4a);
+      P('box', .27, .08, .32, .155, .025, .225, RED);
+      P('box', .27, .16, .38, .08, .02, .03, 0x1e88e5);
+      // copaci, bancă
+      for (const [x, z] of [[-.42, .38], [.05, .4]]) { P('cyl', x, 0, z, .025, .09, .025, 0x6d4c41); P('ball', x, .07, z, .13, .13, .13, 0x4caf50); }
+      P('box', -.25, .05, .4, .18, .02, .06, 0x8d5a3b);
+      // firma „SPITAL” pe fațadă, deasupra dungii roșii
+      const fx = -.05, fz = .033;
+      this.pharmacySigns.push({ t: 'hospital', x: cx + fx * cs + fz * sn, y: .5, z: cz - fx * sn + fz * cs, r, w: .44, h: .07 });
+      return .7;
     }
     if (k === 'pharmacy') {
       // farmacia REIVAN: clădire albă cu vitrine, acoperiș verde, cruce verde pe acoperiș și pe stâlp, firmă cu numele
