@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Engine } from './game/engine.js';
 import { TOOLS, TOOL, ANIMALS } from './game/config.js';
-import { FLAGS, flagImage } from './game/flags.js';
+import { FLAGS, flagImage, SOCCER_TEAMS } from './game/flags.js';
 import { useInstall, isIOS, isSecure } from './install.js';
 import { useSocial, SocialButton, SocialPanel, VisitBanner } from './Social.jsx';
 import { useRoom, PlayBar } from './Together.jsx';
@@ -105,7 +105,7 @@ function Messages({ list }) {
 function Info({ info, g, money, readOnly, onClose }) {
   const yes = (v, label) => <li className={v ? 'ok' : 'bad'}>{v ? '✔' : '✖'} {label}</li>;
   return (
-    <aside className={'card info' + (info.ranch != null || (info.flag != null && !readOnly) ? ' wide' : '')}>
+    <aside className={'card info' + (info.ranch != null || info.teams || (info.flag != null && !readOnly) ? ' wide' : '')}>
       <div className="card-head">
         <h3>{info.title}</h3>
         <button className="icon small" onClick={onClose} aria-label="Închide">✕</button>
@@ -116,6 +116,7 @@ function Info({ info, g, money, readOnly, onClose }) {
       {info.ranch != null && (readOnly
         ? <p>{ANIMALS[info.ranch].icon} Aici se cresc <b>{ANIMALS[info.ranch].name.toLowerCase()}</b> ({ANIMALS[info.ranch].product}).</p>
         : <RanchPicker info={info} g={g} money={money} />)}
+      {info.teams && <SoccerPicker teams={info.teams} readOnly={readOnly} onPick={(a, b) => g.setTeams(info.x, info.z, a, b)} />}
       {info.flag != null && (readOnly
         ? info.flag >= 0 && <p className="flag-now"><img src={flagImage(info.flag)} alt="" /> Steag: <b>{FLAGS[info.flag].name}</b></p>
         : <div className="flag-box">
@@ -127,7 +128,7 @@ function Info({ info, g, money, readOnly, onClose }) {
             </p>
             <FlagPicker cur={info.flag} onPick={j => g.setTileFlag(info.x, info.z, j)} />
           </div>)}
-      {!info.crop && info.ranch == null && <ul className="checks">
+      {!info.crop && info.ranch == null && !info.teams && <ul className="checks">
         {yes(info.road, 'Drum aproape')}
         {yes(info.powered, 'Curent electric')}
         {yes(info.watered, 'Apă')}
@@ -150,6 +151,32 @@ function FlagPicker({ cur, onPick }) {
           <span>{f.name}</span>
         </button>
       ))}
+    </div>
+  );
+}
+
+// terenul de fotbal: cine cu cine joacă; fiecare echipă se alege din steagurile țărilor
+function SoccerPicker({ teams, readOnly, onPick }) {
+  const [a, b] = teams;
+  const flag = j => <span className="team-name"><img src={flagImage(j)} alt="" /> {FLAGS[j].name}</span>;
+  const row = (side, cur, other) => (
+    <div className="team-pick">
+      <p className="muted">{side === 0 ? '🟢 Echipa 1 (gazdele)' : '🔵 Echipa 2 (oaspeții)'}</p>
+      <div className="flag-grid">
+        {SOCCER_TEAMS.map(j => (
+          <button key={j} className={'flag-opt' + (j === cur ? ' on' : '')} disabled={j === other}
+            onClick={() => onPick(side === 0 ? j : a, side === 0 ? b : j)} title={FLAGS[j].name}>
+            <img src={flagImage(j)} alt="" />
+            <span>{FLAGS[j].name}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+  return (
+    <div className="soccer-box">
+      <p className="match-now">⚽ {flag(a)} <b>contra</b> {flag(b)}</p>
+      {!readOnly && <>{row(0, a, b)}{row(1, b, a)}<p className="muted small-note">Când schimbi o echipă, meciul începe de la 0 : 0.</p></>}
     </div>
   );
 }
@@ -285,7 +312,7 @@ function Budget({ ui, g, onClose }) {
             <tr><td>Taxe încasate</td><td className="pos">+{fmt(m.income)} $</td></tr>
             {m.energy > 0 && <tr><td>Energie vândută</td><td className="pos">+{fmt(m.energy)} $</td></tr>}
             {m.tickets > 0 && <tr><td>Bilete la parcul de distracții</td><td className="pos">+{fmt(m.tickets)} $</td></tr>}
-            {m.business > 0 && <tr><td>Afaceri (cafenele, benzinării, parcări, aeroport, plaje, heliporturi, farmacii)</td><td className="pos">+{fmt(m.business)} $</td></tr>}
+            {m.business > 0 && <tr><td>Afaceri (cafenele, benzinării, parcări, aeroport, plaje, heliporturi, farmacii, fotbal)</td><td className="pos">+{fmt(m.business)} $</td></tr>}
             {m.ranch > 0 && <tr><td>Produse de la ferme</td><td className="pos">+{fmt(m.ranch)} $</td></tr>}
             {m.farm > 0 && <tr><td>Legume și cereale vândute</td><td className="pos">+{fmt(m.farm)} $</td></tr>}
             <tr><td>Întreținere drumuri</td><td className="neg">−{fmt(m.roads)} $</td></tr>

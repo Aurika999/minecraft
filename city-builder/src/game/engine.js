@@ -14,7 +14,7 @@ const DAY_REAL = 240; // o zi întreagă (zi + noapte) durează 4 minute
 
 const LOOK_KEY = 'orasul-meu-personaj';
 // clădirile prin care personajul nu poate trece (zonele construite se ocolesc și ele)
-const SOLID = new Set(['power', 'water', 'police', 'fire', 'school', 'station', 'hall', 'hospital']);
+const SOLID = new Set(['power', 'water', 'police', 'fire', 'school', 'station', 'hall', 'hospital', 'soccer']);
 const WALK_SPEED = 2.4;
 
 const SAVE_KEY = 'orasul-meu-v1';
@@ -117,6 +117,18 @@ export class Engine {
     this.view.rebuild(this.city);
     this.builtVersion = this.city.version;
     this.msg(j < 0 ? '🚩 Am scos steagul.' : `🚩 Acum flutură steagul: ${FLAGS[j].name}.`);
+    this.save();
+    this.emit();
+  }
+
+  // alege țările care joacă pe terenul de fotbal selectat
+  setTeams(x, z, a, b) {
+    if (this.readOnly) return;
+    const r = this.city.setTeams(this.city.idx(x, z), a, b);
+    if (r.error) { this.msg(r.error); return; }
+    this.view.rebuild(this.city);
+    this.builtVersion = this.city.version;
+    this.msg(`⚽ Meci nou: ${FLAGS[a].name} – ${FLAGS[b].name}!`);
     this.save();
     this.emit();
   }

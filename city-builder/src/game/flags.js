@@ -27,9 +27,51 @@ export const FLAGS = [
   { id: 'pirate', name: 'Pirați', draw: pirate },
   { id: 'city', name: 'Orașul Meu', draw: (x, w, h) => { fill(x, w, h, '#2e9d55'); house(x, w / 2, h / 2, h * .62, '#ffffff'); } },
   { id: 'white', name: 'Alb (pace)', draw: (x, w, h) => fill(x, w, h, '#ffffff') },
+  // adăugate la urmă, ca steagurile puse deja pe clădiri să rămână aceleași
+  { id: 'br', name: 'Brazilia', draw: brazil },
+  { id: 'ar', name: 'Argentina', h: ['#74acdf', '#ffffff', '#74acdf'], draw: (x, w, h) => circle(x, w / 2, h / 2, h * .1, '#f6b40e') },
+  { id: 'pt', name: 'Portugalia', draw: portugal },
 ];
 
 export const FLAG_W = 96, FLAG_H = 64;
+
+// echipele naționale de fotbal: [tricou, șort] acasă și [tricou, șort] în deplasare (când seamănă cu adversarul)
+const KITS = {
+  ro: [[0xfcd116, 0x002b7f], [0x002b7f, 0x002b7f]],
+  md: [[0x0046ae, 0x0046ae], [0xffd200, 0x0046ae]],
+  it: [[0x1e5bc6, 0xffffff], [0xffffff, 0x1e5bc6]],
+  fr: [[0x0b2a6f, 0xffffff], [0xffffff, 0x0b2a6f]],
+  de: [[0xffffff, 0x111111], [0x222222, 0xffffff]],
+  es: [[0xc8102e, 0x1a237e], [0xf1bf00, 0xf1bf00]],
+  ua: [[0xffd700, 0xffd700], [0x0057b7, 0x0057b7]],
+  hu: [[0xce2939, 0xffffff], [0xffffff, 0x477050]],
+  bg: [[0xffffff, 0x00966e], [0xd62612, 0x00966e]],
+  at: [[0xed2939, 0xffffff], [0xffffff, 0x111111]],
+  nl: [[0xff7f00, 0xffffff], [0x21468b, 0x21468b]],
+  pl: [[0xffffff, 0xdc143c], [0xdc143c, 0xffffff]],
+  ie: [[0x169b62, 0xffffff], [0xffffff, 0x169b62]],
+  be: [[0xef3340, 0xef3340], [0xfdda24, 0x111111]],
+  jp: [[0x1a3a8f, 0xffffff], [0xffffff, 0x1a3a8f]],
+  gb: [[0xffffff, 0x012169], [0xc8102e, 0xffffff]],
+  us: [[0xffffff, 0x3c3b6e], [0x3c3b6e, 0xffffff]],
+  br: [[0xffdf00, 0x002776], [0x002776, 0xffffff]],
+  ar: [[0x75aadb, 0x111111], [0x1b2a4a, 0x1b2a4a]],
+  pt: [[0xc8102e, 0x046a38], [0xffffff, 0xffffff]],
+};
+// indicii (din FLAGS) ai țărilor care au echipă de fotbal
+export const SOCCER_TEAMS = FLAGS.map((f, j) => (KITS[f.id] ? j : -1)).filter(j => j >= 0);
+export const DEFAULT_TEAMS = [FLAGS.findIndex(f => f.id === 'ro'), FLAGS.findIndex(f => f.id === 'it')];
+
+const rgb = c => [c >> 16 & 255, c >> 8 & 255, c & 255];
+const near = (a, b) => { const p = rgb(a), q = rgb(b); return Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2]) < 120; };
+// echipamentele celor două echipe; a doua îmbracă echipamentul de rezervă dacă tricourile seamănă
+export function teamKits(a, b) {
+  const ka = KITS[FLAGS[a]?.id] || KITS.ro, kb = KITS[FLAGS[b]?.id] || KITS.it;
+  let home = ka[0], away = kb[0];
+  if (near(home[0], away[0])) away = kb[1];
+  if (near(home[0], away[0])) home = ka[1]; // tot seamănă: și prima echipă trece pe rezervă
+  return [home, away];
+}
 
 function fill(x, w, h, c) { x.fillStyle = c; x.fillRect(0, 0, w, h); }
 function circle(x, cx, cy, r, c) { x.fillStyle = c; x.beginPath(); x.arc(cx, cy, r, 0, Math.PI * 2); x.fill(); }
@@ -76,6 +118,20 @@ function usa(x, w, h) {
   for (let k = 0; k < 13; k++) { x.fillStyle = k % 2 ? '#ffffff' : '#b22234'; x.fillRect(0, k * h / 13, w, h / 13 + 1); }
   x.fillStyle = '#3c3b6e'; x.fillRect(0, 0, w * .42, h * 7 / 13);
   for (let r = 0; r < 4; r++) for (let c = 0; c < 5; c++) star(x, w * .05 + c * w * .08, h * .07 + r * h * .12, h * .035, '#ffffff');
+}
+function brazil(x, w, h) {
+  fill(x, w, h, '#009c3b');
+  x.fillStyle = '#ffdf00'; x.beginPath();
+  x.moveTo(w * .08, h / 2); x.lineTo(w / 2, h * .1); x.lineTo(w * .92, h / 2); x.lineTo(w / 2, h * .9); x.closePath(); x.fill();
+  circle(x, w / 2, h / 2, h * .22, '#002776');
+  x.strokeStyle = '#ffffff'; x.lineWidth = h * .04; x.beginPath(); x.arc(w / 2, h * .85, h * .42, Math.PI * 1.3, Math.PI * 1.7); x.stroke();
+}
+function portugal(x, w, h) {
+  fill(x, w, h, '#ff0000');
+  x.fillStyle = '#006600'; x.fillRect(0, 0, w * .4, h);
+  circle(x, w * .4, h / 2, h * .22, '#ffcc00');
+  x.fillStyle = '#ffffff'; x.fillRect(w * .4 - h * .1, h / 2 - h * .12, h * .2, h * .22);
+  x.fillStyle = '#d00000'; x.fillRect(w * .4 - h * .07, h / 2 - h * .09, h * .14, h * .16);
 }
 function pirate(x, w, h) {
   fill(x, w, h, '#111111');

@@ -8,6 +8,7 @@ import { GRASS, WATER, FOREST, ZONES, bridgeOf } from './city.js';
 import { Sky, NIGHT } from './sky.js';
 import { flagCanvas } from './flags.js';
 import { buildTractor } from './tractor3d.js';
+import { PITCH as FIELD_DIM, createMatch, updateMatch, disposeMatch } from './soccer.js';
 
 const COL = {
   grass: [0x8fd14f, 0x89cc4a, 0x96d657], forest: 0x7cc444, water: 0x3fb6e8, road: 0x70757d, mark: 0xe9e4c8,
@@ -719,6 +720,7 @@ export class CityView {
     this.pharmacySigns = [];
     this.flagSpots = [];
     this.parkSpots = [];
+    this.soccerSpots = [];
     const roads = [], rails = [];
     this.turbines = [];
     this.ranchSpots = [];
@@ -937,6 +939,7 @@ export class CityView {
     this.syncTractors(city);
     this.syncParked();
     this.syncFlags();
+    this.syncSoccer();
     // păstrează cum erau barierele (sus sau jos), ca să nu sară la reconstruire
     const old = new Map(this.barriers.map(b => [`${b.i}:${b.hx}:${b.hz}`, b.a]));
     for (const b of barriers) b.a = old.get(`${b.i}:${b.hx}:${b.hz}`) ?? b.a;
@@ -1313,6 +1316,25 @@ export class CityView {
       for (const w of t.wheels) w.m.rotation.z -= SPEED * dt / (w.r * 1.4);
       if (t.reel) t.reel.rotation.z -= dt * 4;
     }
+  }
+
+  // meciurile de pe terenurile de fotbal; un meci în desfășurare rămâne (cu scorul lui) când se reconstruiește orașul
+  syncSoccer() {
+    const old = new Map((this.matches || []).map(m => [m.key, m]));
+    this.matches = this.soccerSpots.map((s, j) => {
+      const m = old.get(s.key);
+      if (m && m.r === s.r && String(m.teams) === String(s.teams)) { old.delete(s.key); return m; }
+      const n = createMatch(s, s.key + j);
+      this.scene.add(n.root);
+      return n;
+    });
+    for (const m of old.values()) { this.scene.remove(m.root); disposeMatch(m); }
+  }
+
+  updateSoccer(dt) {
+    if (!this.matches?.length) return;
+    const face = Math.atan2(this.camera.position.x - this.target.x, this.camera.position.z - this.target.z);
+    for (const m of this.matches) updateMatch(m, Math.min(dt, .05), face);
   }
 
   // steagurile de pe clădiri: catarg, bilă aurie în vârf și pânza care flutură (fiecare pânză are geometria ei)
@@ -2135,6 +2157,54 @@ export class CityView {
       }
       return .6;
     }
+    if (k === 'soccer') {
+      // terenul de fotbal: gazon cu dungi, linii albe, cercul de la centru, careuri, porți cu plasă,
+      // tribună cu spectatori în spate, patru reflectoare și stâlpul tabelei; jucătorii îi pune syncSoccer
+      const { L, W, Z } = FIELD_DIM, G1 = 0x4fb54f, G2 = 0x43a047, LN = 0xffffff, y0 = .014, yl = .0175;
+      this.part('box', cx, 0, cz, .98, .014, .98, 0x3e8e41, r);
+      for (let j = 0; j < 8; j++) P('box', -L + (j + .5) * L / 4, y0, Z, L / 4 + .001, .003, 2 * W + .04, j % 2 ? G1 : G2);
+      for (const q of [-1, 1]) {
+        P('box', 0, yl, Z + q * W, 2 * L + .008, .002, .008, LN); // marginile lungi
+        P('box', q * L, yl, Z, .008, .002, 2 * W, LN); // liniile porților
+        // careul mare și punctul de la 11 metri
+        P('box', q * (L - .12), yl, Z, .008, .002, .26, LN);
+        for (const s of [-1, 1]) P('box', q * (L - .06), yl, Z + s * .13, .12, .002, .008, LN);
+        P('cyl', q * (L - .09), yl, Z, .012, .002, .012, LN);
+        // poarta: bare albe și plasă
+        for (const s of [-1, 1]) P('cyl', q * (L + .004), y0, Z + s * .06, .008, .055, .008, LN);
+        P('box', q * (L + .004), .065, Z, .008, .007, .128, LN);
+        P('box', q * (L + .04), y0, Z, .004, .05, .12, 0xe6e6e6);
+        P('box', q * (L + .022), .062, Z, .036, .003, .12, 0xe6e6e6);
+        for (const s of [-1, 1]) P('box', q * (L + .022), y0, Z + s * .06, .036, .05, .003, 0xe6e6e6);
+      }
+      P('cyl', 0, .0165, Z, .14, .002, .14, LN);
+      P('cyl', 0, .0172, Z, .124, .002, .124, G2);
+      P('box', 0, .0178, Z, .008, .002, 2 * W, LN);
+      P('cyl', 0, .0178, Z, .014, .002, .014, LN);
+      // tribuna: trei trepte cu spectatori și un acoperiș pe stâlpi
+      const rows = [[-.27, .03, 0x9aa3ab], [-.33, .06, 0xb0b8bf], [-.39, .09, 0x9aa3ab]];
+      for (const [z, h, c] of rows) P('box', 0, .014, z, .78, h, .06, c);
+      rows.forEach(([z, h], row) => {
+        for (let j = 0; j < 14; j++) {
+          if (((v >> (j % 8)) + j * 3 + row) % 5 === 0) continue;
+          const x = -.36 + j * .055 + (row % 2) * .02;
+          P('box', x, .014 + h, z, .022, .024, .016, pick([0xe53935, 0x1e6fd6, 0xffffff, 0xffd600, 0xe53935, 0x1e6fd6], v + j * 5 + row));
+          P('ball', x, .038 + h, z, .018, .018, .018, pick([0xf1c8a5, 0xe0ac85, 0xc4906c, 0x8d5f43], v + j + row));
+        }
+      });
+      for (const s of [-1, 1]) P('cyl', s * .38, .014, -.42, .012, .2, .012, COL.metal);
+      P('box', 0, .21, -.36, .8, .015, .16, 0xd32f2f);
+      // reflectoarele din colțuri
+      for (const [x, z] of [[-.46, -.2], [.46, -.2], [-.46, .44], [.46, .44]]) {
+        P('cyl', x, 0, z, .014, .5, .014, COL.metal);
+        P('box', x, .5, z, .06, .035, .03, 0x555b61);
+        P('box', x, .5, z + (z < 0 ? .016 : -.016), .05, .028, .004, 0xfff59d);
+      }
+      // stâlpul tabelei de marcaj
+      P('cyl', L - .02, .014, -.44, .012, .46, .012, COL.metal);
+      this.soccerSpots.push({ key: i, x: cx, z: cz, r, teams: this.cityRef.getTeams(i) });
+      return .25;
+    }
     if (k === 'hall') {
       // primăria: clădire crem cu ferestre, portic cu patru coloane albe și fronton, cupolă verde cu felinar auriu,
       // trepte late, firma „PRIMĂRIA”, steaguri, fântână și straturi de flori în față
@@ -2899,6 +2969,7 @@ export class CityView {
     this.updateHelis(dt);
     this.updateTractors(dt);
     this.updateFlags();
+    this.updateSoccer(dt);
     this.sky.update(dt, this.skyState);
     this.renderer.render(this.scene, this.camera);
   }

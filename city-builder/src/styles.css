@@ -319,3 +319,12 @@ p.center { text-align: center; }
 .quiz-money { margin: 12px 0 4px; padding: 10px 12px; border-radius: 12px; background: #fff8dc; }
 .quiz-money .budget { margin-top: 6px; }
 .info .note { background: #e8f5e9; color: #1b5e20; padding: 8px 10px; border-radius: 10px; font-size: 14px; margin: 8px 0 0; }
+/* terenul de fotbal: alegerea echipelor */
+.match-now { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 15px; }
+.team-name { display: inline-flex; align-items: center; gap: 4px; font-weight: 700; }
+.team-name img { width: 30px; height: 20px; border-radius: 2px; }
+.team-pick { margin-top: 6px; }
+.team-pick > p { margin: 4px 0; font-weight: 700; }
+.team-pick .flag-grid { max-height: 150px; overflow-y: auto; }
+.flag-opt:disabled { opacity: .3; cursor: not-allowed; }
+.small-note { font-size: 12px; margin-top: 6px; }

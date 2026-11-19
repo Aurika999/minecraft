@@ -37,6 +37,7 @@ export const MISSIONS = [
   { id: 'agro', icon: '🛠️', text: 'Construiește un garaj de utilaje lângă terenul arabil', reward: 1000, goal: c => [Math.min(1, count(c, 'agro')), 1] },
   { id: 'hall', icon: '🏛️', text: 'Construiește primăria orașului', reward: 1000, goal: c => [Math.min(1, count(c, 'hall')), 1] },
   { id: 'hospital', icon: '🏥', text: 'Construiește un spital', reward: 1200, goal: c => [Math.min(1, count(c, 'hospital')), 1] },
+  { id: 'soccer', icon: '⚽', text: 'Fă un teren de fotbal', reward: 600, goal: c => [Math.min(1, count(c, 'soccer')), 1] },
   { id: 'pharmacy', icon: '💊', text: 'Deschide farmacia REIVAN', reward: 500, goal: c => [Math.min(1, count(c, 'pharmacy')), 1] },
   { id: 'cafe', icon: '☕', text: 'Deschide o cafenea', reward: 400, goal: c => [Math.min(1, count(c, 'cafe')), 1] },
   { id: 'gas', icon: '⛽', text: 'Construiește o benzinărie', reward: 600, goal: c => [Math.min(1, count(c, 'gas')), 1] },
